@@ -2,40 +2,16 @@
 
 ## Overview
 
-tmux default and personal config. The `defaults/` directory contains reference files showing tmux's built-in options, generated using an unconfigured tmux server (`tmux -L unconfigured -f /dev/null start-server`).
+tmux default and personal config. The `defaults/` directory contains reference files generated from an unconfigured tmux server. Each file includes a comment with the command used to produce it.
 
 ## Structure
 
-- `defaults/` - Reference documentation of tmux default settings:
-  - `all-options.conf` - Combined server, session, and window options
-  - `bindings.conf` - Default key bindings for all key tables (copy-mode, copy-mode-vi, prefix, root)
-  - `colour-options.conf` - Color-related options
-  - `format-options.conf` - Format string options (status-format, window-status-format, etc.)
-  - `global-options.conf` - Session-level options (`show-options -g`)
-  - `separator-options.conf` - Separator options
-  - `server-options.conf` - Server-level options (`show-options -gs`)
-  - `style-options.conf` - Style-related options
-  - `window-options.conf` - Window-level options (`show-options -gw`)
+- `defaults/` - tmux built-in options and key bindings (`.conf` files)
 
 ## Development
 
-### Regenerating Default Options
-
-Each file includes a comment showing the tmux command used to generate it. To regenerate:
+Regenerate any defaults file by running the tmux command in its header comment. The general pattern is:
 
 ```bash
-# Server options
-tmux -L unconfigured -f /dev/null start-server \; show-options -gs
-
-# Session (global) options
-tmux -L unconfigured -f /dev/null start-server \; show-options -g
-
-# Window options
-tmux -L unconfigured -f /dev/null start-server \; show-options -gw
-
-# Key bindings
-tmux -L unconfigured -f /dev/null start-server \; list-keys
-
-# All options combined
-tmux -L unconfigured -f /dev/null start-server \; show-options -gs \; show-options -g \; show-options -gw
+tmux -L unconfigured -f /dev/null start-server \; <show-command>
 ```
