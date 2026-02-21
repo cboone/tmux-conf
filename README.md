@@ -1,4 +1,4 @@
-# Tmux Conf
+# tmux conf
 
 Reference documentation for tmux default configuration settings, plus personal tmux config.
 
@@ -17,14 +17,6 @@ The `defaults/` directory contains files generated from a clean tmux server with
 | `server-options.conf`    | Server-level options (`show-options -gs`)                                       |
 | `style-options.conf`     | Style-related options                                                           |
 | `window-options.conf`    | Window-level options (`show-options -gw`)                                       |
-
-## Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/cboone/tmux-conf.git
-```
 
 ## Regenerating Defaults
 
