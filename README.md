@@ -2,7 +2,7 @@
 
 Reference documentation for tmux default configuration settings, plus personal tmux config.
 
-The `defaults/` directory contains files generated from a clean tmux server with no user configuration (`tmux -L unconfigured -f /dev/null start-server`), capturing every built-in option and key binding.
+The `defaults/` directory contains files generated from a clean tmux server with no user configuration (`tmux -L unconfigured -f /dev/null start-server`), capturing every built-in option and key binding. These files are automatically updated whenever a new version of tmux is released.
 
 ## Default Reference Files
 
