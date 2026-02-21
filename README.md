@@ -18,6 +18,16 @@ The `defaults/` directory contains files generated from a clean tmux server with
 | `style-options.conf`     | Style-related options                                                           |
 | `window-options.conf`    | Window-level options (`show-options -gw`)                                       |
 
+## Formatted Defaults
+
+The `defaults/formatted/` directory contains the same files, reformatted for readability. Options are grouped by name prefix with section headers, and key bindings are organized by table and action type.
+
+To regenerate the formatted files from the raw defaults:
+
+```bash
+bin/format-defaults
+```
+
 ## Regenerating Defaults
 
 Run the update script to regenerate all files at once:
