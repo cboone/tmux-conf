@@ -6,17 +6,17 @@ The `defaults/` directory contains files generated from a clean tmux server with
 
 ## Default Reference Files
 
-| File                     | Contents                                                                          |
-| ------------------------ | --------------------------------------------------------------------------------- |
-| `all-options.conf`       | Combined server, session, and window options                                      |
-| `bindings.conf`          | Default key bindings for all key tables (copy-mode, copy-mode-vi, prefix, root)   |
-| `colour-options.conf`    | Color-related options                                                             |
-| `format-options.conf`    | Format string options (`status-format`, `window-status-format`, etc.)              |
-| `global-options.conf`    | Session-level options (`show-options -g`)                                          |
-| `separator-options.conf` | Separator options                                                                 |
-| `server-options.conf`    | Server-level options (`show-options -gs`)                                          |
-| `style-options.conf`     | Style-related options                                                             |
-| `window-options.conf`    | Window-level options (`show-options -gw`)                                          |
+| File                     | Contents                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `all-options.conf`       | Combined server, session, and window options                                    |
+| `bindings.conf`          | Default key bindings for all key tables (copy-mode, copy-mode-vi, prefix, root) |
+| `colour-options.conf`    | Color-related options                                                           |
+| `format-options.conf`    | Format string options (`status-format`, `window-status-format`, etc.)           |
+| `global-options.conf`    | Session-level options (`show-options -g`)                                       |
+| `separator-options.conf` | Separator options                                                               |
+| `server-options.conf`    | Server-level options (`show-options -gs`)                                       |
+| `style-options.conf`     | Style-related options                                                           |
+| `window-options.conf`    | Window-level options (`show-options -gw`)                                       |
 
 ## Installation
 
