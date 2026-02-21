@@ -28,24 +28,13 @@ git clone https://github.com/cboone/tmux-conf.git
 
 ## Regenerating Defaults
 
-Each file includes a comment showing the exact tmux command used to generate it. To regenerate:
+Run the update script to regenerate all files at once:
 
 ```bash
-# Server options
-tmux -L unconfigured -f /dev/null start-server \; show-options -gs
-
-# Session (global) options
-tmux -L unconfigured -f /dev/null start-server \; show-options -g
-
-# Window options
-tmux -L unconfigured -f /dev/null start-server \; show-options -gw
-
-# Key bindings
-tmux -L unconfigured -f /dev/null start-server \; list-keys
-
-# All options combined
-tmux -L unconfigured -f /dev/null start-server \; show-options -gs \; show-options -g \; show-options -gw
+./bin/update-defaults
 ```
+
+The script reads the tmux command from each file's header comment, runs it against an unconfigured tmux server, and writes the output back. It prints progress and the tmux version used.
 
 ## License
 
