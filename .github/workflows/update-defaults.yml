@@ -1,0 +1,118 @@
+name: Update tmux defaults
+
+on:
+  schedule:
+    # Weekly on Monday at 06:00 UTC.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      tmux-version:
+        description: >
+          tmux version to build (e.g., "3.7" or "3.6a").
+          Leave empty to auto-detect the latest release.
+        required: false
+        type: string
+
+concurrency:
+  group: update-defaults
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-defaults:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get latest tmux release version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -n "${{ inputs.tmux-version }}" ]]; then
+            version="${{ inputs.tmux-version }}"
+          else
+            version="$(gh api repos/tmux/tmux/releases/latest --jq '.tag_name')"
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "Detected tmux version: ${version}"
+
+      - name: Check for existing PR
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="chore/update-defaults-tmux-${{ steps.version.outputs.version }}"
+          existing="$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "${branch}" \
+            --state open \
+            --json number \
+            --jq 'length')"
+          if [[ "${existing}" -gt 0 ]]; then
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+            echo "PR already exists for tmux ${{ steps.version.outputs.version }}, skipping."
+          else
+            echo "skip=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Checkout repository
+        if: steps.check-pr.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        if: steps.check-pr.outputs.skip != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libevent-dev libncurses-dev bison
+
+      - name: Download and build tmux
+        if: steps.check-pr.outputs.skip != 'true'
+        env:
+          TMUX_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cd /tmp
+          curl --fail --silent --show-error --location \
+            "https://github.com/tmux/tmux/releases/download/${TMUX_VERSION}/tmux-${TMUX_VERSION}.tar.gz" \
+            --output tmux.tar.gz
+          tar xzf tmux.tar.gz
+          cd "tmux-${TMUX_VERSION}"
+          ./configure --prefix=/usr/local
+          make -j"$(nproc)"
+          sudo make install
+          echo "Installed: $(tmux -V)"
+
+      - name: Regenerate defaults
+        if: steps.check-pr.outputs.skip != 'true'
+        env:
+          TERM: xterm-256color
+        run: ./bin/update-defaults
+
+      - name: Create pull request
+        id: create-pr
+        if: steps.check-pr.outputs.skip != 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/update-defaults-tmux-${{ steps.version.outputs.version }}
+          commit-message: "chore: regenerate defaults for tmux ${{ steps.version.outputs.version }}"
+          title: "chore: regenerate defaults for tmux ${{ steps.version.outputs.version }}"
+          body: |
+            Regenerate `defaults/*.conf` for tmux ${{ steps.version.outputs.version }}.
+
+            This PR was created automatically by the [update-defaults workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+
+            Release notes: https://github.com/tmux/tmux/releases/tag/${{ steps.version.outputs.version }}
+          labels: automation
+          delete-branch: true
+
+      - name: Enable auto-merge
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr merge "${{ steps.create-pr.outputs.pull-request-number }}" \
+            --repo "${{ github.repository }}" \
+            --squash \
+            --auto
