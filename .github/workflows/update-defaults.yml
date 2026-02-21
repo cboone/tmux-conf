@@ -36,6 +36,11 @@ jobs:
           else
             version="$(gh api repos/tmux/tmux/releases/latest --jq '.tag_name')"
           fi
+          if [[ -z "${version}" ]]; then
+            echo "::error::Failed to detect tmux version." >&2
+            exit 1
+          fi
+
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "Detected tmux version: ${version}"
 
@@ -60,7 +65,7 @@ jobs:
 
       - name: Checkout repository
         if: steps.check-pr.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install build dependencies
         if: steps.check-pr.outputs.skip != 'true'
@@ -93,7 +98,7 @@ jobs:
       - name: Create pull request
         id: create-pr
         if: steps.check-pr.outputs.skip != 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
           branch: chore/update-defaults-tmux-${{ steps.version.outputs.version }}
           commit-message: "chore: regenerate defaults for tmux ${{ steps.version.outputs.version }}"
