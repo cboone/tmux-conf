@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# bin/update-defaults - Regenerate defaults/*.conf from an unconfigured tmux server
+# Author: Christopher Boone
+# Date: 2026-02-21
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+readonly REPO_DIR="${SCRIPT_DIR}/.."
+readonly DEFAULTS_DIR="${REPO_DIR}/defaults"
+readonly SOCKET_NAME="unconfigured"
+
+# Kill the unconfigured tmux server on exit, if it is running.
+# Arguments: none
+# Returns: 0
+function cleanup() {
+  local exit_code="${?}"
+  tmux -L "${SOCKET_NAME}" kill-server 2>/dev/null || true
+  exit "${exit_code}"
+}
+
+# Extract the tmux command from a file's header comment.
+# Arguments:
+#   $1 - Path to a defaults/*.conf file
+# Outputs:
+#   Writes the raw command (without "# " prefix) to stdout
+# Returns:
+#   0 if header found, 1 if missing or invalid
+function extract_command() {
+  local file="${1}"
+  local header
+  header="$(head -n 1 "${file}")"
+
+  if [[ "${header}" != "# "* ]]; then
+    return 1
+  fi
+
+  printf '%s\n' "${header#\# }"
+}
+
+# Regenerate a single defaults file by running its header command.
+# Arguments:
+#   $1 - Path to a defaults/*.conf file
+# Returns:
+#   0 on success, 1 on failure (with warning to stderr)
+function update_file() {
+  local file="${1}"
+  local basename="${file##*/}"
+  local command
+  command="$(extract_command "${file}")" || {
+    printf 'warning: skipping %s (no valid header comment)\n' "${basename}" >&2
+    return 1
+  }
+
+  local output
+  # eval is needed here because the header commands use both \; escaping
+  # (for tmux command separation) and shell pipes (for grep filtering).
+  # The command source is controlled: our own header comments, not user input.
+  # shellcheck disable=SC2294
+  output="$(eval "${command}")" || {
+    printf 'warning: command failed for %s\n' "${basename}" >&2
+    return 1
+  }
+
+  printf '# %s\n\n%s\n' "${command}" "${output}" > "${file}"
+  printf 'updated %s\n' "${basename}" >&2
+}
+
+function main() {
+  if ! command -v tmux > /dev/null 2>&1; then
+    printf 'error: tmux is not installed\n' >&2
+    exit 1
+  fi
+
+  printf 'tmux %s\n' "$(tmux -V | cut -d' ' -f2)" >&2
+
+  trap cleanup EXIT
+
+  local file
+  local -i failures=0
+  for file in "${DEFAULTS_DIR}"/*.conf; do
+    if [[ ! -f "${file}" ]]; then
+      printf 'warning: no .conf files found in %s\n' "${DEFAULTS_DIR}" >&2
+      exit 1
+    fi
+    update_file "${file}" || ((failures++))
+  done
+
+  if ((failures > 0)); then
+    printf '\n%d file(s) had warnings\n' "${failures}" >&2
+  fi
+}
+
+main "${@}"
