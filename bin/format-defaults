@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# format-defaults — Format raw tmux default config files for readability.
+# format-defaults — Format raw tmux default config files as Markdown.
 # Reads from defaults/ and writes grouped versions to defaults/formatted/.
 
 set -euo pipefail
@@ -10,9 +10,21 @@ readonly PROJECT_DIR="${SCRIPT_DIR}/.."
 readonly RAW_DIR="${PROJECT_DIR}/defaults"
 readonly FMT_DIR="${PROJECT_DIR}/defaults/formatted"
 
+# Display titles for each defaults file.
+declare -A FILE_TITLES=(
+  [server-options]="Server Options"
+  [global-options]="Session Options"
+  [window-options]="Window Options"
+  [colour-options]="Colour Options"
+  [format-options]="Format Options"
+  [separator-options]="Separator Options"
+  [style-options]="Style Options"
+  [all-options]="All Options"
+  [bindings]="Key Bindings"
+)
+
 # Derive a group key from an option name using parameter expansion.
 # Strips array indices, returns first hyphen-delimited word.
-# Sets the global variable __group_key to avoid subshell overhead.
 # Arguments:
 #   $1 - Option name (e.g., "status-left-style", "command-alias[0]")
 # Sets: __group_key
@@ -22,15 +34,75 @@ function set_option_group_key() {
   __group_key="${name%%-*}"
 }
 
-# Format an options file by grouping adjacent options with the same prefix.
-# Groups with 2+ options get a comment header. Consecutive singletons are
-# kept together without blank lines between them.
+# Emit grouped options/bindings as Markdown to stdout.
+# Named groups (2+ lines sharing a prefix) get a heading and their own
+# fenced code block. Consecutive singletons share one code block without
+# a header.
+# Arguments:
+#   $1 - Name of array variable containing lines
+#   $2 - Name of array variable containing group keys
+#   $3 - Heading prefix (default: "##")
+function emit_markdown_groups() {
+  local -n emg_lines="${1}"
+  local -n emg_keys="${2}"
+  local heading_prefix="${3:-##}"
+  local -i total="${#emg_lines[@]}"
+
+  local -i i=0
+  local in_fence=false
+
+  while ((i < total)); do
+    local key="${emg_keys[${i}]}"
+
+    # Count consecutive lines with the same group key
+    local -i group_size=1
+    while (( (i + group_size) < total )) && [[ "${emg_keys[$((i + group_size))]}" == "${key}" ]]; do
+      ((group_size++))
+    done
+
+    if ((group_size >= 2)); then
+      # Named group: close any open fence, emit heading + own code block
+      if [[ "${in_fence}" == true ]]; then
+        echo '```'
+        in_fence=false
+      fi
+      echo ""
+      echo "${heading_prefix} ${key^}"
+      echo ""
+      echo '```tmux'
+      local -i j
+      for ((j = 0; j < group_size; j++)); do
+        echo "${emg_lines[$((i + j))]}"
+      done
+      echo '```'
+    else
+      # Singleton: add to current fence or open a new one
+      if [[ "${in_fence}" != true ]]; then
+        echo ""
+        echo '```tmux'
+        in_fence=true
+      fi
+      echo "${emg_lines[${i}]}"
+    fi
+
+    ((i += group_size)) || true
+  done
+
+  # Close any trailing open fence
+  if [[ "${in_fence}" == true ]]; then
+    echo '```'
+  fi
+}
+
+# Format an options file as Markdown with grouped sections.
 # Arguments:
 #   $1 - Input file path (raw)
-#   $2 - Output file path (formatted)
+#   $2 - Output file path (formatted Markdown)
+#   $3 - Display title for the H1 header
 function format_options() {
   local input="${1}"
   local output="${2}"
+  local title="${3}"
 
   local header=""
   local -a lines=()
@@ -52,79 +124,23 @@ function format_options() {
     keys+=("${__group_key}")
   done
 
-  format_grouped_options "${header}" "${output}" lines keys
-}
-
-# Write grouped options to a file, given pre-computed group keys.
-# Arguments:
-#   $1 - Header comment string (may be empty)
-#   $2 - Output file path
-#   $3 - Name of array variable containing option lines
-#   $4 - Name of array variable containing group keys
-function format_grouped_options() {
-  local header="${1}"
-  local output="${2}"
-  local -n lines_ref="${3}"
-  local -n keys_ref="${4}"
-  local -i total="${#lines_ref[@]}"
-
   {
-    if [[ -n "${header}" ]]; then
-      echo "${header}"
-      echo ""
-    fi
-
-    local -i i=0
-    local prev_was_singleton=false
-
-    while ((i < total)); do
-      local key="${keys_ref[${i}]}"
-
-      # Count consecutive lines with the same group key
-      local -i group_size=1
-      while (( (i + group_size) < total )) && [[ "${keys_ref[$((i + group_size))]}" == "${key}" ]]; do
-        ((group_size++))
-      done
-
-      # Spacing before this group
-      if ((i > 0)); then
-        if ((group_size >= 2)); then
-          echo ""
-        elif [[ "${prev_was_singleton}" == false ]]; then
-          echo ""
-        fi
-        # consecutive singletons: no blank line (implicit)
-      fi
-
-      # Header for multi-option groups
-      if ((group_size >= 2)); then
-        echo "# ${key^}"
-      fi
-
-      # Output all lines in this group
-      local -i j
-      for ((j = 0; j < group_size; j++)); do
-        echo "${lines_ref[$((i + j))]}"
-      done
-
-      if ((group_size >= 2)); then
-        prev_was_singleton=false
-      else
-        prev_was_singleton=true
-      fi
-
-      ((i += group_size)) || true
-    done
+    echo "# ${title}"
+    echo ""
+    echo "> \`${header#\# }\`"
+    emit_markdown_groups lines keys
   } > "${output}"
 }
 
-# Format all-options.conf with scope section dividers and option grouping.
+# Format all-options as Markdown with scope section dividers and option grouping.
 # Arguments:
 #   $1 - Input file path (raw all-options.conf)
-#   $2 - Output file path (formatted)
+#   $2 - Output file path (formatted Markdown)
+#   $3 - Display title for the H1 header
 function format_all_options() {
   local input="${1}"
   local output="${2}"
+  local title="${3}"
 
   # Build scope lookup from individual raw files
   declare -A scope_map
@@ -178,11 +194,17 @@ function format_all_options() {
     keys+=("${__group_key}")
   done
 
+  # Scope section headings for H2 headers
+  declare -A scope_headings
+  scope_headings["server"]='Server Options (`show-options -gs`)'
+  scope_headings["session"]='Session Options (`show-options -g`)'
+  scope_headings["window"]='Window Options (`show-options -gw`)'
+
   # Split into scope sections and format each
   {
-    if [[ -n "${header}" ]]; then
-      echo "${header}"
-    fi
+    echo "# ${title}"
+    echo ""
+    echo "> \`${header#\# }\`"
 
     local current_scope=""
     local -i section_start=0
@@ -206,69 +228,10 @@ function format_all_options() {
             section_keys+=("${keys[${k}]}")
           done
 
-          # Write scope header
+          local heading="${scope_headings["${current_scope}"]:-Other Options}"
           echo ""
-          case "${current_scope}" in
-            server)
-              echo "# ============================================================"
-              echo "# Server options (show-options -gs)"
-              echo "# ============================================================"
-              ;;
-            session)
-              echo "# ============================================================"
-              echo "# Session options (show-options -g)"
-              echo "# ============================================================"
-              ;;
-            window)
-              echo "# ============================================================"
-              echo "# Window options (show-options -gw)"
-              echo "# ============================================================"
-              ;;
-            *)
-              echo "# ============================================================"
-              echo "# Other options"
-              echo "# ============================================================"
-              ;;
-          esac
-          echo ""
-
-          # Write grouped options for this section (inline, not to file)
-          local -i si=0
-          local prev_was_singleton=false
-          local -i section_total="${#section_lines[@]}"
-
-          while ((si < section_total)); do
-            local skey="${section_keys[${si}]}"
-            local -i group_size=1
-            while (( (si + group_size) < section_total )) && [[ "${section_keys[$((si + group_size))]}" == "${skey}" ]]; do
-              ((group_size++))
-            done
-
-            if ((si > 0)); then
-              if ((group_size >= 2)); then
-                echo ""
-              elif [[ "${prev_was_singleton}" == false ]]; then
-                echo ""
-              fi
-            fi
-
-            if ((group_size >= 2)); then
-              echo "# ${skey^}"
-            fi
-
-            local -i sj
-            for ((sj = 0; sj < group_size; sj++)); do
-              echo "${section_lines[$((si + sj))]}"
-            done
-
-            if ((group_size >= 2)); then
-              prev_was_singleton=false
-            else
-              prev_was_singleton=true
-            fi
-
-            ((si += group_size)) || true
-          done
+          echo "## ${heading}"
+          emit_markdown_groups section_lines section_keys "###"
         fi
 
         current_scope="${scope}"
@@ -279,7 +242,6 @@ function format_all_options() {
 }
 
 # Extract an action group key from a binding's action string.
-# Sets __group_key to avoid subshell overhead.
 # Arguments:
 #   $1 - Action string from a bind-key line
 # Sets: __group_key
@@ -335,13 +297,16 @@ function set_binding_group_key() {
   __group_key="${first_word%%-*}"
 }
 
-# Format the bindings file with key table sections and action-based sub-groups.
+# Format the bindings file as Markdown with key table sections and
+# action-based sub-groups.
 # Arguments:
 #   $1 - Input file path (raw bindings.conf)
-#   $2 - Output file path (formatted)
+#   $2 - Output file path (formatted Markdown)
+#   $3 - Display title for the H1 header
 function format_bindings() {
   local input="${1}"
   local output="${2}"
+  local title="${3}"
 
   local header=""
   local -a raw_lines=()
@@ -355,7 +320,6 @@ function format_bindings() {
   done < "${input}"
 
   # Parse bindings: extract table and section key for each line
-  local -a binding_tables=()
   local -a binding_sections=()
   local -a binding_group_keys=()
   local -a section_order=()
@@ -405,7 +369,6 @@ function format_bindings() {
       section="prefix-repeat"
     fi
 
-    binding_tables+=("${table}")
     binding_sections+=("${section}")
 
     set_binding_group_key "${action}"
@@ -417,19 +380,17 @@ function format_bindings() {
     fi
   done
 
-  # Output formatted bindings
+  # Output formatted bindings as Markdown
   {
-    if [[ -n "${header}" ]]; then
-      echo "${header}"
-    fi
+    echo "# ${title}"
+    echo ""
+    echo "> \`${header#\# }\`"
 
     for section in "${section_order[@]}"; do
       local label="${section_labels["${section}"]:-${section}}"
 
       echo ""
-      echo "# ============================================================"
-      echo "# ${label}"
-      echo "# ============================================================"
+      echo "## ${label}"
 
       # Collect indices for this section
       local -a sect_indices=()
@@ -449,59 +410,25 @@ function format_bindings() {
       local sorted
       sorted="$(printf '%s\n' "${sort_input[@]}" | sort -t $'\x1f' -k1,1 -s)"
 
-      # Read sorted indices and output with group headers
-      local -a sorted_indices=()
-      local -a sorted_keys=()
+      # Build sorted lines and keys arrays for emit_markdown_groups
+      local -a sorted_lines=()
+      local -a sorted_gkeys=()
       while IFS=$'\x1f' read -r gkey gidx; do
         [[ -z "${gidx}" ]] && continue
-        sorted_indices+=("${gidx}")
-        sorted_keys+=("${gkey}")
+        sorted_lines+=("${raw_lines[${gidx}]}")
+        sorted_gkeys+=("${gkey}")
       done <<< "${sorted}"
 
-      # Output with grouping
-      local -i si=0
-      local prev_was_singleton=false
-      local -i sect_total="${#sorted_indices[@]}"
-
-      while ((si < sect_total)); do
-        local gkey="${sorted_keys[${si}]}"
-        local -i group_size=1
-        while (( (si + group_size) < sect_total )) && [[ "${sorted_keys[$((si + group_size))]}" == "${gkey}" ]]; do
-          ((group_size++))
-        done
-
-        if ((si > 0)); then
-          if ((group_size >= 2)); then
-            echo ""
-          elif [[ "${prev_was_singleton}" == false ]]; then
-            echo ""
-          fi
-        fi
-
-        if ((group_size >= 2)); then
-          echo "# ${gkey^}"
-        fi
-
-        local -i sj
-        for ((sj = 0; sj < group_size; sj++)); do
-          local orig_idx="${sorted_indices[$((si + sj))]}"
-          echo "${raw_lines[${orig_idx}]}"
-        done
-
-        if ((group_size >= 2)); then
-          prev_was_singleton=false
-        else
-          prev_was_singleton=true
-        fi
-
-        ((si += group_size)) || true
-      done
+      emit_markdown_groups sorted_lines sorted_gkeys "###"
     done
   } > "${output}"
 }
 
 function main() {
   mkdir -p "${FMT_DIR}"
+
+  # Clean up old .conf files from previous format
+  rm -f "${FMT_DIR}"/*.conf
 
   echo "Formatting option files..." >&2
   local -a option_files=(
@@ -515,17 +442,17 @@ function main() {
   )
 
   for file in "${option_files[@]}"; do
-    format_options "${RAW_DIR}/${file}.conf" "${FMT_DIR}/${file}.conf"
-    echo "  ${file}.conf" >&2
+    format_options "${RAW_DIR}/${file}.conf" "${FMT_DIR}/${file}.md" "${FILE_TITLES["${file}"]:-${file}}"
+    echo "  ${file}.md" >&2
   done
 
-  echo "Formatting all-options.conf..." >&2
-  format_all_options "${RAW_DIR}/all-options.conf" "${FMT_DIR}/all-options.conf"
-  echo "  all-options.conf" >&2
+  echo "Formatting all-options.md..." >&2
+  format_all_options "${RAW_DIR}/all-options.conf" "${FMT_DIR}/all-options.md" "${FILE_TITLES["all-options"]}"
+  echo "  all-options.md" >&2
 
-  echo "Formatting bindings.conf..." >&2
-  format_bindings "${RAW_DIR}/bindings.conf" "${FMT_DIR}/bindings.conf"
-  echo "  bindings.conf" >&2
+  echo "Formatting bindings.md..." >&2
+  format_bindings "${RAW_DIR}/bindings.conf" "${FMT_DIR}/bindings.md" "${FILE_TITLES["bindings"]}"
+  echo "  bindings.md" >&2
 
   echo "Done. Formatted files written to defaults/formatted/" >&2
 }

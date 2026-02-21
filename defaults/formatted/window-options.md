@@ -1,60 +1,100 @@
-# tmux -L unconfigured -f /dev/null start-server \; show-options -gw
+# Window Options
 
+> `tmux -L unconfigured -f /dev/null start-server \; show-options -gw`
+
+```tmux
 aggressive-resize off
+```
 
-# Allow
+## Allow
+
+```tmux
 allow-passthrough off
 allow-rename off
 allow-set-title on
+```
 
+```tmux
 alternate-screen on
+```
 
-# Automatic
+## Automatic
+
+```tmux
 automatic-rename on
 automatic-rename-format "#{?pane_in_mode,[tmux],#{pane_current_command}}#{?pane_dead,[dead],}"
+```
 
-# Clock
+## Clock
+
+```tmux
 clock-mode-colour blue
 clock-mode-style 24
+```
 
-# Copy
+## Copy
+
+```tmux
 copy-mode-current-match-style bg=magenta,fg=black
 copy-mode-mark-style bg=red,fg=black
 copy-mode-match-style bg=cyan,fg=black
 copy-mode-position-format "#[align=right]#{t/p:top_line_time}#{?#{e|>:#{top_line_time},0}, ,}[#{scroll_position}/#{history_size}]#{?search_timed_out, (timed out),#{?search_count, (#{search_count}#{?search_count_partial,+,} results),}}"
 copy-mode-position-style "#{E:mode-style}"
 copy-mode-selection-style "#{E:mode-style}"
+```
 
-# Cursor
+## Cursor
+
+```tmux
 cursor-colour none
 cursor-style default
+```
 
+```tmux
 fill-character ''
+```
 
-# Main
+## Main
+
+```tmux
 main-pane-height 24
 main-pane-width 80
+```
 
-# Menu
+## Menu
+
+```tmux
 menu-border-lines single
 menu-border-style default
 menu-selected-style bg=yellow,fg=black
 menu-style default
+```
 
-# Mode
+## Mode
+
+```tmux
 mode-keys emacs
 mode-style noattr,bg=yellow,fg=black
+```
 
-# Monitor
+## Monitor
+
+```tmux
 monitor-activity off
 monitor-bell on
 monitor-silence 0
+```
 
-# Other
+## Other
+
+```tmux
 other-pane-height 0
 other-pane-width 0
+```
 
-# Pane
+## Pane
+
+```tmux
 pane-active-border-style "#{?pane_in_mode,fg=yellow,#{?synchronize-panes,fg=red,fg=green}}"
 pane-base-index 0
 pane-border-format "#{?pane_active,#[reverse],}#{pane_index}#[default] \"#{pane_title}\""
@@ -68,26 +108,42 @@ pane-scrollbars-position right
 pane-scrollbars-style bg=black,fg=white,width=1,pad=0
 pane-status-current-style default
 pane-status-style default
+```
 
-# Popup
+## Popup
+
+```tmux
 popup-border-lines single
 popup-border-style default
 popup-style default
+```
 
-# Remain
+## Remain
+
+```tmux
 remain-on-exit off
 remain-on-exit-format "Pane is dead (#{?#{!=:#{pane_dead_status},},status #{pane_dead_status},}#{?#{!=:#{pane_dead_signal},},signal #{pane_dead_signal},}, #{t:pane_dead_time})"
+```
 
+```tmux
 scroll-on-clear on
+```
 
-# Session
+## Session
+
+```tmux
 session-status-current-style default
 session-status-style default
+```
 
+```tmux
 synchronize-panes off
 tiled-layout-max-columns 0
+```
 
-# Window
+## Window
+
+```tmux
 window-active-style default
 window-size latest
 window-status-activity-style reverse
@@ -99,6 +155,9 @@ window-status-last-style default
 window-status-separator " "
 window-status-style default
 window-style default
+```
 
+```tmux
 wrap-search on
 xterm-keys on
+```

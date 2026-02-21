@@ -1,55 +1,89 @@
-# tmux -L unconfigured -f /dev/null start-server \; show-options -g
+# Session Options
 
+> `tmux -L unconfigured -f /dev/null start-server \; show-options -g`
+
+```tmux
 activity-action other
 assume-paste-time 1
 base-index 0
 bell-action any
+```
 
-# Default
+## Default
+
+```tmux
 default-command ''
 default-shell /bin/zsh
 default-size 80x24
+```
 
+```tmux
 destroy-unattached off
 detach-on-destroy on
+```
 
-# Display
+## Display
+
+```tmux
 display-panes-active-colour red
 display-panes-colour blue
 display-panes-time 1000
 display-time 750
+```
 
+```tmux
 history-limit 2000
 initial-repeat-time 0
 key-table root
+```
 
-# Lock
+## Lock
+
+```tmux
 lock-after-time 0
 lock-command "lock -np"
+```
 
-# Message
+## Message
+
+```tmux
 message-command-style bg=black,fg=yellow
 message-line 0
 message-style bg=yellow,fg=black
+```
 
+```tmux
 mouse off
 prefix C-b
 prefix2 None
+```
 
-# Prompt
+## Prompt
+
+```tmux
 prompt-cursor-colour cyan
 prompt-cursor-style default
+```
 
+```tmux
 renumber-windows off
 repeat-time 500
+```
 
-# Set
+## Set
+
+```tmux
 set-titles off
 set-titles-string "#S:#I:#W - \"#T\" #{session_alerts}"
+```
 
+```tmux
 silence-action other
+```
 
-# Status
+## Status
+
+```tmux
 status on
 status-bg default
 status-fg default
@@ -67,8 +101,11 @@ status-right "#{?window_bigger,[#{window_offset_x}#,#{window_offset_y}] ,}\"#{=2
 status-right-length 40
 status-right-style default
 status-style bg=green,fg=black
+```
 
-# Update
+## Update
+
+```tmux
 update-environment[0] DISPLAY
 update-environment[1] KRB5CCNAME
 update-environment[2] MSYSTEM
@@ -78,10 +115,16 @@ update-environment[5] SSH_AGENT_PID
 update-environment[6] SSH_CONNECTION
 update-environment[7] WINDOWID
 update-environment[8] XAUTHORITY
+```
 
-# Visual
+## Visual
+
+```tmux
 visual-activity off
 visual-bell off
 visual-silence off
+```
 
+```tmux
 word-separators "!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~"
+```

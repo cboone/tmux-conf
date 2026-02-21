@@ -20,7 +20,7 @@ The `defaults/` directory contains files generated from a clean tmux server with
 
 ## Formatted Defaults
 
-The `defaults/formatted/` directory contains the same files, reformatted for readability. Options are grouped by name prefix with section headers, and key bindings are organized by table and action type.
+The `defaults/formatted/` directory contains the same data as Markdown files, reformatted for readability. Options are grouped by name prefix with section headers, and key bindings are organized by table and action type. Each group appears in its own fenced code block under a descriptive heading.
 
 To regenerate the formatted files from the raw defaults:
 
