@@ -1,0 +1,533 @@
+#!/usr/bin/env bash
+# format-defaults — Format raw tmux default config files for readability.
+# Reads from defaults/ and writes grouped versions to defaults/formatted/.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+readonly PROJECT_DIR="${SCRIPT_DIR}/.."
+readonly RAW_DIR="${PROJECT_DIR}/defaults"
+readonly FMT_DIR="${PROJECT_DIR}/defaults/formatted"
+
+# Derive a group key from an option name using parameter expansion.
+# Strips array indices, returns first hyphen-delimited word.
+# Sets the global variable __group_key to avoid subshell overhead.
+# Arguments:
+#   $1 - Option name (e.g., "status-left-style", "command-alias[0]")
+# Sets: __group_key
+function set_option_group_key() {
+  local name="${1}"
+  name="${name%%\[*}"
+  __group_key="${name%%-*}"
+}
+
+# Format an options file by grouping adjacent options with the same prefix.
+# Groups with 2+ options get a comment header. Consecutive singletons are
+# kept together without blank lines between them.
+# Arguments:
+#   $1 - Input file path (raw)
+#   $2 - Output file path (formatted)
+function format_options() {
+  local input="${1}"
+  local output="${2}"
+
+  local header=""
+  local -a lines=()
+
+  while IFS= read -r line; do
+    if [[ -z "${header}" && "${line}" == \#* ]]; then
+      header="${line}"
+    elif [[ -n "${line}" && "${line}" != \#* ]]; then
+      lines+=("${line}")
+    fi
+  done < "${input}"
+
+  # Pre-compute group keys for all lines
+  local -a keys=()
+  local -i idx
+  for ((idx = 0; idx < ${#lines[@]}; idx++)); do
+    local opt_name="${lines[${idx}]%% *}"
+    set_option_group_key "${opt_name}"
+    keys+=("${__group_key}")
+  done
+
+  format_grouped_options "${header}" "${output}" lines keys
+}
+
+# Write grouped options to a file, given pre-computed group keys.
+# Arguments:
+#   $1 - Header comment string (may be empty)
+#   $2 - Output file path
+#   $3 - Name of array variable containing option lines
+#   $4 - Name of array variable containing group keys
+function format_grouped_options() {
+  local header="${1}"
+  local output="${2}"
+  local -n lines_ref="${3}"
+  local -n keys_ref="${4}"
+  local -i total="${#lines_ref[@]}"
+
+  {
+    if [[ -n "${header}" ]]; then
+      echo "${header}"
+      echo ""
+    fi
+
+    local -i i=0
+    local prev_was_singleton=false
+
+    while ((i < total)); do
+      local key="${keys_ref[${i}]}"
+
+      # Count consecutive lines with the same group key
+      local -i group_size=1
+      while (( (i + group_size) < total )) && [[ "${keys_ref[$((i + group_size))]}" == "${key}" ]]; do
+        ((group_size++))
+      done
+
+      # Spacing before this group
+      if ((i > 0)); then
+        if ((group_size >= 2)); then
+          echo ""
+        elif [[ "${prev_was_singleton}" == false ]]; then
+          echo ""
+        fi
+        # consecutive singletons: no blank line (implicit)
+      fi
+
+      # Header for multi-option groups
+      if ((group_size >= 2)); then
+        echo "# ${key^}"
+      fi
+
+      # Output all lines in this group
+      local -i j
+      for ((j = 0; j < group_size; j++)); do
+        echo "${lines_ref[$((i + j))]}"
+      done
+
+      if ((group_size >= 2)); then
+        prev_was_singleton=false
+      else
+        prev_was_singleton=true
+      fi
+
+      ((i += group_size)) || true
+    done
+  } > "${output}"
+}
+
+# Format all-options.conf with scope section dividers and option grouping.
+# Arguments:
+#   $1 - Input file path (raw all-options.conf)
+#   $2 - Output file path (formatted)
+function format_all_options() {
+  local input="${1}"
+  local output="${2}"
+
+  # Build scope lookup from individual raw files
+  declare -A scope_map
+
+  # Read options from individual files, including commented-out options
+  # (e.g., "# editor $EDITOR" in server-options.conf represents an option
+  # whose value depends on the environment).
+  local line name scope_label file
+  for scope_label in server session window; do
+    case "${scope_label}" in
+      server)  file="${RAW_DIR}/server-options.conf" ;;
+      session) file="${RAW_DIR}/global-options.conf" ;;
+      window)  file="${RAW_DIR}/window-options.conf" ;;
+    esac
+    while IFS= read -r line; do
+      [[ -z "${line}" ]] && continue
+      if [[ "${line}" == "# tmux "* ]]; then
+        continue
+      elif [[ "${line}" == \#\ * ]]; then
+        name="${line#\# }"
+        name="${name%% *}"
+      elif [[ "${line}" == \#* ]]; then
+        continue
+      else
+        name="${line%% *}"
+      fi
+      scope_map["${name}"]="${scope_label}"
+    done < "${file}"
+  done
+
+  # Read the file
+  local header=""
+  local -a all_lines=()
+
+  while IFS= read -r line; do
+    if [[ -z "${header}" && "${line}" == \#* ]]; then
+      header="${line}"
+    elif [[ -n "${line}" && "${line}" != \#* ]]; then
+      all_lines+=("${line}")
+    fi
+  done < "${input}"
+
+  # Pre-compute scopes and group keys
+  local -a scopes=()
+  local -a keys=()
+  local -i idx
+  for ((idx = 0; idx < ${#all_lines[@]}; idx++)); do
+    local opt_name="${all_lines[${idx}]%% *}"
+    scopes+=("${scope_map["${opt_name}"]:-unknown}")
+    set_option_group_key "${opt_name}"
+    keys+=("${__group_key}")
+  done
+
+  # Split into scope sections and format each
+  {
+    if [[ -n "${header}" ]]; then
+      echo "${header}"
+    fi
+
+    local current_scope=""
+    local -i section_start=0
+
+    for ((idx = 0; idx <= ${#all_lines[@]}; idx++)); do
+      local scope=""
+      if ((idx < ${#all_lines[@]})); then
+        scope="${scopes[${idx}]}"
+      fi
+
+      # Detect scope boundary or end of file
+      if [[ "${scope}" != "${current_scope}" ]]; then
+        # Format the previous section if it had any lines
+        if [[ -n "${current_scope}" ]] && ((idx > section_start)); then
+          # Extract section lines and keys into temporary arrays
+          local -a section_lines=()
+          local -a section_keys=()
+          local -i k
+          for ((k = section_start; k < idx; k++)); do
+            section_lines+=("${all_lines[${k}]}")
+            section_keys+=("${keys[${k}]}")
+          done
+
+          # Write scope header
+          echo ""
+          case "${current_scope}" in
+            server)
+              echo "# ============================================================"
+              echo "# Server options (show-options -gs)"
+              echo "# ============================================================"
+              ;;
+            session)
+              echo "# ============================================================"
+              echo "# Session options (show-options -g)"
+              echo "# ============================================================"
+              ;;
+            window)
+              echo "# ============================================================"
+              echo "# Window options (show-options -gw)"
+              echo "# ============================================================"
+              ;;
+            *)
+              echo "# ============================================================"
+              echo "# Other options"
+              echo "# ============================================================"
+              ;;
+          esac
+          echo ""
+
+          # Write grouped options for this section (inline, not to file)
+          local -i si=0
+          local prev_was_singleton=false
+          local -i section_total="${#section_lines[@]}"
+
+          while ((si < section_total)); do
+            local skey="${section_keys[${si}]}"
+            local -i group_size=1
+            while (( (si + group_size) < section_total )) && [[ "${section_keys[$((si + group_size))]}" == "${skey}" ]]; do
+              ((group_size++))
+            done
+
+            if ((si > 0)); then
+              if ((group_size >= 2)); then
+                echo ""
+              elif [[ "${prev_was_singleton}" == false ]]; then
+                echo ""
+              fi
+            fi
+
+            if ((group_size >= 2)); then
+              echo "# ${skey^}"
+            fi
+
+            local -i sj
+            for ((sj = 0; sj < group_size; sj++)); do
+              echo "${section_lines[$((si + sj))]}"
+            done
+
+            if ((group_size >= 2)); then
+              prev_was_singleton=false
+            else
+              prev_was_singleton=true
+            fi
+
+            ((si += group_size)) || true
+          done
+        fi
+
+        current_scope="${scope}"
+        section_start="${idx}"
+      fi
+    done
+  } > "${output}"
+}
+
+# Extract an action group key from a binding's action string.
+# Sets __group_key to avoid subshell overhead.
+# Arguments:
+#   $1 - Action string from a bind-key line
+# Sets: __group_key
+function set_binding_group_key() {
+  local action="${1}"
+  local cmd
+
+  # send-keys -X -N <num> <cmd> (check before general -X pattern)
+  if [[ "${action}" =~ send-keys[[:space:]]+-X[[:space:]]+-N[[:space:]]+[0-9]+[[:space:]]+([a-z][a-z-]*) ]]; then
+    cmd="${BASH_REMATCH[1]}"
+    __group_key="${cmd%%-*}"
+    return
+  fi
+
+  # send-keys -X <cmd> or send-keys -FX <cmd>
+  if [[ "${action}" =~ send-keys[[:space:]]+-[A-Za-z]*X[[:space:]]+([a-z][a-z-]*) ]]; then
+    cmd="${BASH_REMATCH[1]}"
+    __group_key="${cmd%%-*}"
+    return
+  fi
+
+  # command-prompt ... { <cmd> ... }
+  if [[ "${action}" =~ \{[[:space:]]*([a-z-]+) ]]; then
+    cmd="${BASH_REMATCH[1]}"
+    __group_key="${cmd%%-*}"
+    return
+  fi
+
+  # confirm-before ... <cmd> (last hyphenated-word that looks like a tmux command)
+  if [[ "${action}" =~ confirm-before.*[[:space:]]([a-z]+-[a-z]+) ]]; then
+    cmd="${BASH_REMATCH[1]}"
+    __group_key="${cmd%%-*}"
+    return
+  fi
+
+  # select-pane \; ... — look past select-pane to the next command
+  local select_pane_pattern='^select-pane[[:space:]].*\\;[[:space:]]+(.*)'
+  if [[ "${action}" =~ ${select_pane_pattern} ]]; then
+    set_binding_group_key "${BASH_REMATCH[1]}"
+    return
+  fi
+
+  # if-shell ... { <cmd> } — extract first branch command
+  local if_shell_pattern='^if-shell.*\{[[:space:]]*([a-z-]+)'
+  if [[ "${action}" =~ ${if_shell_pattern} ]]; then
+    cmd="${BASH_REMATCH[1]}"
+    __group_key="${cmd%%-*}"
+    return
+  fi
+
+  # Default: first word of the action
+  local first_word="${action%% *}"
+  __group_key="${first_word%%-*}"
+}
+
+# Format the bindings file with key table sections and action-based sub-groups.
+# Arguments:
+#   $1 - Input file path (raw bindings.conf)
+#   $2 - Output file path (formatted)
+function format_bindings() {
+  local input="${1}"
+  local output="${2}"
+
+  local header=""
+  local -a raw_lines=()
+
+  while IFS= read -r line; do
+    if [[ -z "${header}" && "${line}" == \#* ]]; then
+      header="${line}"
+    elif [[ -n "${line}" && "${line}" == bind-key* ]]; then
+      raw_lines+=("${line}")
+    fi
+  done < "${input}"
+
+  # Parse bindings: extract table and section key for each line
+  local -a binding_tables=()
+  local -a binding_sections=()
+  local -a binding_group_keys=()
+  local -a section_order=()
+  declare -A seen_sections
+
+  declare -A section_labels
+  section_labels["copy-mode"]="copy-mode (emacs)"
+  section_labels["copy-mode-vi"]="copy-mode-vi"
+  section_labels["prefix"]="prefix"
+  section_labels["prefix-repeat"]="prefix (repeat)"
+  section_labels["root"]="root"
+
+  local -i idx
+  for ((idx = 0; idx < ${#raw_lines[@]}; idx++)); do
+    local bline="${raw_lines[${idx}]}"
+    local rest="${bline#*bind-key}"
+    rest="${rest#"${rest%%[![:space:]]*}"}"
+
+    local repeat_flag=""
+    if [[ "${rest}" == -r\ * || "${rest}" == -r$'\t'* ]]; then
+      repeat_flag="-r"
+      rest="${rest#-r}"
+      rest="${rest#"${rest%%[![:space:]]*}"}"
+    fi
+
+    local table=""
+    if [[ "${rest}" == -T\ * || "${rest}" == -T$'\t'* ]]; then
+      rest="${rest#-T}"
+      rest="${rest#"${rest%%[![:space:]]*}"}"
+      table="${rest%%[[:space:]]*}"
+      rest="${rest#"${table}"}"
+      rest="${rest#"${rest%%[![:space:]]*}"}"
+    fi
+
+    # Skip the key field to get the action
+    if [[ "${rest}" == \"* ]]; then
+      local after_quote="${rest#\"}"
+      rest="${after_quote#*\"}"
+    else
+      rest="${rest#*[[:space:]]}"
+    fi
+    rest="${rest#"${rest%%[![:space:]]*}"}"
+    local action="${rest}"
+
+    local section="${table}"
+    if [[ "${table}" == "prefix" && "${repeat_flag}" == "-r" ]]; then
+      section="prefix-repeat"
+    fi
+
+    binding_tables+=("${table}")
+    binding_sections+=("${section}")
+
+    set_binding_group_key "${action}"
+    binding_group_keys+=("${__group_key}")
+
+    if [[ -z "${seen_sections["${section}"]:-}" ]]; then
+      section_order+=("${section}")
+      seen_sections["${section}"]=1
+    fi
+  done
+
+  # Output formatted bindings
+  {
+    if [[ -n "${header}" ]]; then
+      echo "${header}"
+    fi
+
+    for section in "${section_order[@]}"; do
+      local label="${section_labels["${section}"]:-${section}}"
+
+      echo ""
+      echo "# ============================================================"
+      echo "# ${label}"
+      echo "# ============================================================"
+
+      # Collect indices for this section
+      local -a sect_indices=()
+      for ((idx = 0; idx < ${#raw_lines[@]}; idx++)); do
+        if [[ "${binding_sections[${idx}]}" == "${section}" ]]; then
+          sect_indices+=("${idx}")
+        fi
+      done
+
+      # Build sortable lines: group_key + unit separator + original index
+      local -a sort_input=()
+      for idx in "${sect_indices[@]}"; do
+        sort_input+=("${binding_group_keys[${idx}]}"$'\x1f'"${idx}")
+      done
+
+      # Sort by group key (stable sort preserves original order within key)
+      local sorted
+      sorted="$(printf '%s\n' "${sort_input[@]}" | sort -t $'\x1f' -k1,1 -s)"
+
+      # Read sorted indices and output with group headers
+      local -a sorted_indices=()
+      local -a sorted_keys=()
+      while IFS=$'\x1f' read -r gkey gidx; do
+        [[ -z "${gidx}" ]] && continue
+        sorted_indices+=("${gidx}")
+        sorted_keys+=("${gkey}")
+      done <<< "${sorted}"
+
+      # Output with grouping
+      local -i si=0
+      local prev_was_singleton=false
+      local -i sect_total="${#sorted_indices[@]}"
+
+      while ((si < sect_total)); do
+        local gkey="${sorted_keys[${si}]}"
+        local -i group_size=1
+        while (( (si + group_size) < sect_total )) && [[ "${sorted_keys[$((si + group_size))]}" == "${gkey}" ]]; do
+          ((group_size++))
+        done
+
+        if ((si > 0)); then
+          if ((group_size >= 2)); then
+            echo ""
+          elif [[ "${prev_was_singleton}" == false ]]; then
+            echo ""
+          fi
+        fi
+
+        if ((group_size >= 2)); then
+          echo "# ${gkey^}"
+        fi
+
+        local -i sj
+        for ((sj = 0; sj < group_size; sj++)); do
+          local orig_idx="${sorted_indices[$((si + sj))]}"
+          echo "${raw_lines[${orig_idx}]}"
+        done
+
+        if ((group_size >= 2)); then
+          prev_was_singleton=false
+        else
+          prev_was_singleton=true
+        fi
+
+        ((si += group_size)) || true
+      done
+    done
+  } > "${output}"
+}
+
+function main() {
+  mkdir -p "${FMT_DIR}"
+
+  echo "Formatting option files..." >&2
+  local -a option_files=(
+    server-options
+    global-options
+    window-options
+    colour-options
+    format-options
+    separator-options
+    style-options
+  )
+
+  for file in "${option_files[@]}"; do
+    format_options "${RAW_DIR}/${file}.conf" "${FMT_DIR}/${file}.conf"
+    echo "  ${file}.conf" >&2
+  done
+
+  echo "Formatting all-options.conf..." >&2
+  format_all_options "${RAW_DIR}/all-options.conf" "${FMT_DIR}/all-options.conf"
+  echo "  all-options.conf" >&2
+
+  echo "Formatting bindings.conf..." >&2
+  format_bindings "${RAW_DIR}/bindings.conf" "${FMT_DIR}/bindings.conf"
+  echo "  bindings.conf" >&2
+
+  echo "Done. Formatted files written to defaults/formatted/" >&2
+}
+
+main "${@}"
