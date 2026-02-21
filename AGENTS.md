@@ -6,12 +6,9 @@ tmux default and personal config. The `defaults/` directory contains reference f
 
 ## Structure
 
+- `bin/` - scripts for maintaining the repository
 - `defaults/` - tmux built-in options and key bindings (`.conf` files)
 
 ## Development
 
-Regenerate any defaults file by running the tmux command in its header comment. The general pattern is:
-
-```bash
-tmux -L unconfigured -f /dev/null start-server \; <show-command>
-```
+Regenerate all defaults files by running `./bin/update-defaults`. The script reads the tmux command from each file's header comment and rewrites the file with fresh output.
