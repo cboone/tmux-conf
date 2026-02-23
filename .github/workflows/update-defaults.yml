@@ -95,6 +95,10 @@ jobs:
           TERM: xterm-256color
         run: ./bin/update-defaults
 
+      - name: Format defaults as Markdown
+        if: steps.check-pr.outputs.skip != 'true'
+        run: ./bin/format-defaults
+
       - name: Create pull request
         id: create-pr
         if: steps.check-pr.outputs.skip != 'true'
@@ -104,7 +108,7 @@ jobs:
           commit-message: "chore: regenerate defaults for tmux ${{ steps.version.outputs.version }}"
           title: "chore: regenerate defaults for tmux ${{ steps.version.outputs.version }}"
           body: |
-            Regenerate `defaults/*.conf` for tmux ${{ steps.version.outputs.version }}.
+            Regenerate `defaults/*.conf` and `defaults/formatted/*.md` for tmux ${{ steps.version.outputs.version }}.
 
             This PR was created automatically by the [update-defaults workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
 

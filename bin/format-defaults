@@ -1,0 +1,460 @@
+#!/usr/bin/env bash
+# format-defaults — Format raw tmux default config files as Markdown.
+# Reads from defaults/ and writes grouped versions to defaults/formatted/.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+readonly PROJECT_DIR="${SCRIPT_DIR}/.."
+readonly RAW_DIR="${PROJECT_DIR}/defaults"
+readonly FMT_DIR="${PROJECT_DIR}/defaults/formatted"
+
+# Display titles for each defaults file.
+declare -A FILE_TITLES=(
+  [server-options]="Server Options"
+  [global-options]="Session Options"
+  [window-options]="Window Options"
+  [colour-options]="Colour Options"
+  [format-options]="Format Options"
+  [separator-options]="Separator Options"
+  [style-options]="Style Options"
+  [all-options]="All Options"
+  [bindings]="Key Bindings"
+)
+
+# Derive a group key from an option name using parameter expansion.
+# Strips array indices, returns first hyphen-delimited word.
+# Arguments:
+#   $1 - Option name (e.g., "status-left-style", "command-alias[0]")
+# Sets: __group_key
+function set_option_group_key() {
+  local name="${1}"
+  name="${name%%\[*}"
+  __group_key="${name%%-*}"
+}
+
+# Emit grouped options/bindings as Markdown to stdout.
+# Named groups (2+ lines sharing a prefix) get a heading and their own
+# fenced code block. Consecutive singletons share one code block without
+# a header.
+# Arguments:
+#   $1 - Name of array variable containing lines
+#   $2 - Name of array variable containing group keys
+#   $3 - Heading prefix (default: "##")
+function emit_markdown_groups() {
+  local -n emg_lines="${1}"
+  local -n emg_keys="${2}"
+  local heading_prefix="${3:-##}"
+  local -i total="${#emg_lines[@]}"
+
+  local -i i=0
+  local in_fence=false
+
+  while ((i < total)); do
+    local key="${emg_keys[${i}]}"
+
+    # Count consecutive lines with the same group key
+    local -i group_size=1
+    while (( (i + group_size) < total )) && [[ "${emg_keys[$((i + group_size))]}" == "${key}" ]]; do
+      ((group_size++))
+    done
+
+    if ((group_size >= 2)); then
+      # Named group: close any open fence, emit heading + own code block
+      if [[ "${in_fence}" == true ]]; then
+        echo '```'
+        in_fence=false
+      fi
+      echo ""
+      echo "${heading_prefix} ${key^}"
+      echo ""
+      echo '```tmux'
+      local -i j
+      for ((j = 0; j < group_size; j++)); do
+        echo "${emg_lines[$((i + j))]}"
+      done
+      echo '```'
+    else
+      # Singleton: add to current fence or open a new one
+      if [[ "${in_fence}" != true ]]; then
+        echo ""
+        echo '```tmux'
+        in_fence=true
+      fi
+      echo "${emg_lines[${i}]}"
+    fi
+
+    ((i += group_size)) || true
+  done
+
+  # Close any trailing open fence
+  if [[ "${in_fence}" == true ]]; then
+    echo '```'
+  fi
+}
+
+# Format an options file as Markdown with grouped sections.
+# Arguments:
+#   $1 - Input file path (raw)
+#   $2 - Output file path (formatted Markdown)
+#   $3 - Display title for the H1 header
+function format_options() {
+  local input="${1}"
+  local output="${2}"
+  local title="${3}"
+
+  local header=""
+  local -a lines=()
+
+  while IFS= read -r line; do
+    if [[ -z "${header}" && "${line}" == \#* ]]; then
+      header="${line}"
+    elif [[ -n "${line}" && "${line}" != \#* ]]; then
+      lines+=("${line}")
+    fi
+  done < "${input}"
+
+  # Pre-compute group keys for all lines
+  local -a keys=()
+  local -i idx
+  for ((idx = 0; idx < ${#lines[@]}; idx++)); do
+    local opt_name="${lines[${idx}]%% *}"
+    set_option_group_key "${opt_name}"
+    keys+=("${__group_key}")
+  done
+
+  {
+    echo "# ${title}"
+    echo ""
+    echo "> \`${header#\# }\`"
+    emit_markdown_groups lines keys
+  } > "${output}"
+}
+
+# Format all-options as Markdown with scope section dividers and option grouping.
+# Arguments:
+#   $1 - Input file path (raw all-options.conf)
+#   $2 - Output file path (formatted Markdown)
+#   $3 - Display title for the H1 header
+function format_all_options() {
+  local input="${1}"
+  local output="${2}"
+  local title="${3}"
+
+  # Build scope lookup from individual raw files
+  declare -A scope_map
+
+  # Read options from individual files, including commented-out options
+  # (e.g., "# editor $EDITOR" in server-options.conf represents an option
+  # whose value depends on the environment).
+  local line name scope_label file
+  for scope_label in server session window; do
+    case "${scope_label}" in
+      server)  file="${RAW_DIR}/server-options.conf" ;;
+      session) file="${RAW_DIR}/global-options.conf" ;;
+      window)  file="${RAW_DIR}/window-options.conf" ;;
+    esac
+    while IFS= read -r line; do
+      [[ -z "${line}" ]] && continue
+      if [[ "${line}" == "# tmux "* ]]; then
+        continue
+      elif [[ "${line}" == \#\ * ]]; then
+        name="${line#\# }"
+        name="${name%% *}"
+      elif [[ "${line}" == \#* ]]; then
+        continue
+      else
+        name="${line%% *}"
+      fi
+      scope_map["${name}"]="${scope_label}"
+    done < "${file}"
+  done
+
+  # Read the file
+  local header=""
+  local -a all_lines=()
+
+  while IFS= read -r line; do
+    if [[ -z "${header}" && "${line}" == \#* ]]; then
+      header="${line}"
+    elif [[ -n "${line}" && "${line}" != \#* ]]; then
+      all_lines+=("${line}")
+    fi
+  done < "${input}"
+
+  # Pre-compute scopes and group keys
+  local -a scopes=()
+  local -a keys=()
+  local -i idx
+  for ((idx = 0; idx < ${#all_lines[@]}; idx++)); do
+    local opt_name="${all_lines[${idx}]%% *}"
+    scopes+=("${scope_map["${opt_name}"]:-unknown}")
+    set_option_group_key "${opt_name}"
+    keys+=("${__group_key}")
+  done
+
+  # Scope section headings for H2 headers
+  declare -A scope_headings
+  scope_headings["server"]='Server Options (`show-options -gs`)'
+  scope_headings["session"]='Session Options (`show-options -g`)'
+  scope_headings["window"]='Window Options (`show-options -gw`)'
+
+  # Split into scope sections and format each
+  {
+    echo "# ${title}"
+    echo ""
+    echo "> \`${header#\# }\`"
+
+    local current_scope=""
+    local -i section_start=0
+
+    for ((idx = 0; idx <= ${#all_lines[@]}; idx++)); do
+      local scope=""
+      if ((idx < ${#all_lines[@]})); then
+        scope="${scopes[${idx}]}"
+      fi
+
+      # Detect scope boundary or end of file
+      if [[ "${scope}" != "${current_scope}" ]]; then
+        # Format the previous section if it had any lines
+        if [[ -n "${current_scope}" ]] && ((idx > section_start)); then
+          # Extract section lines and keys into temporary arrays
+          local -a section_lines=()
+          local -a section_keys=()
+          local -i k
+          for ((k = section_start; k < idx; k++)); do
+            section_lines+=("${all_lines[${k}]}")
+            section_keys+=("${keys[${k}]}")
+          done
+
+          local heading="${scope_headings["${current_scope}"]:-Other Options}"
+          echo ""
+          echo "## ${heading}"
+          emit_markdown_groups section_lines section_keys "###"
+        fi
+
+        current_scope="${scope}"
+        section_start="${idx}"
+      fi
+    done
+  } > "${output}"
+}
+
+# Extract an action group key from a binding's action string.
+# Arguments:
+#   $1 - Action string from a bind-key line
+# Sets: __group_key
+function set_binding_group_key() {
+  local action="${1}"
+  local cmd
+
+  # send-keys -X -N <num> <cmd> (check before general -X pattern)
+  if [[ "${action}" =~ send-keys[[:space:]]+-X[[:space:]]+-N[[:space:]]+[0-9]+[[:space:]]+([a-z][a-z-]*) ]]; then
+    cmd="${BASH_REMATCH[1]}"
+    __group_key="${cmd%%-*}"
+    return
+  fi
+
+  # send-keys -X <cmd> or send-keys -FX <cmd>
+  if [[ "${action}" =~ send-keys[[:space:]]+-[A-Za-z]*X[[:space:]]+([a-z][a-z-]*) ]]; then
+    cmd="${BASH_REMATCH[1]}"
+    __group_key="${cmd%%-*}"
+    return
+  fi
+
+  # command-prompt ... { <cmd> ... }
+  if [[ "${action}" =~ \{[[:space:]]*([a-z-]+) ]]; then
+    cmd="${BASH_REMATCH[1]}"
+    __group_key="${cmd%%-*}"
+    return
+  fi
+
+  # confirm-before ... <cmd> (last hyphenated-word that looks like a tmux command)
+  if [[ "${action}" =~ confirm-before.*[[:space:]]([a-z]+-[a-z]+) ]]; then
+    cmd="${BASH_REMATCH[1]}"
+    __group_key="${cmd%%-*}"
+    return
+  fi
+
+  # select-pane \; ... — look past select-pane to the next command
+  local select_pane_pattern='^select-pane[[:space:]].*\\;[[:space:]]+(.*)'
+  if [[ "${action}" =~ ${select_pane_pattern} ]]; then
+    set_binding_group_key "${BASH_REMATCH[1]}"
+    return
+  fi
+
+  # if-shell ... { <cmd> } — extract first branch command
+  local if_shell_pattern='^if-shell.*\{[[:space:]]*([a-z-]+)'
+  if [[ "${action}" =~ ${if_shell_pattern} ]]; then
+    cmd="${BASH_REMATCH[1]}"
+    __group_key="${cmd%%-*}"
+    return
+  fi
+
+  # Default: first word of the action
+  local first_word="${action%% *}"
+  __group_key="${first_word%%-*}"
+}
+
+# Format the bindings file as Markdown with key table sections and
+# action-based sub-groups.
+# Arguments:
+#   $1 - Input file path (raw bindings.conf)
+#   $2 - Output file path (formatted Markdown)
+#   $3 - Display title for the H1 header
+function format_bindings() {
+  local input="${1}"
+  local output="${2}"
+  local title="${3}"
+
+  local header=""
+  local -a raw_lines=()
+
+  while IFS= read -r line; do
+    if [[ -z "${header}" && "${line}" == \#* ]]; then
+      header="${line}"
+    elif [[ -n "${line}" && "${line}" == bind-key* ]]; then
+      raw_lines+=("${line}")
+    fi
+  done < "${input}"
+
+  # Parse bindings: extract table and section key for each line
+  local -a binding_sections=()
+  local -a binding_group_keys=()
+  local -a section_order=()
+  declare -A seen_sections
+
+  declare -A section_labels
+  section_labels["copy-mode"]="copy-mode (emacs)"
+  section_labels["copy-mode-vi"]="copy-mode-vi"
+  section_labels["prefix"]="prefix"
+  section_labels["prefix-repeat"]="prefix (repeat)"
+  section_labels["root"]="root"
+
+  local -i idx
+  for ((idx = 0; idx < ${#raw_lines[@]}; idx++)); do
+    local bline="${raw_lines[${idx}]}"
+    local rest="${bline#*bind-key}"
+    rest="${rest#"${rest%%[![:space:]]*}"}"
+
+    local repeat_flag=""
+    if [[ "${rest}" == -r\ * || "${rest}" == -r$'\t'* ]]; then
+      repeat_flag="-r"
+      rest="${rest#-r}"
+      rest="${rest#"${rest%%[![:space:]]*}"}"
+    fi
+
+    local table=""
+    if [[ "${rest}" == -T\ * || "${rest}" == -T$'\t'* ]]; then
+      rest="${rest#-T}"
+      rest="${rest#"${rest%%[![:space:]]*}"}"
+      table="${rest%%[[:space:]]*}"
+      rest="${rest#"${table}"}"
+      rest="${rest#"${rest%%[![:space:]]*}"}"
+    fi
+
+    # Skip the key field to get the action
+    if [[ "${rest}" == \"* ]]; then
+      local after_quote="${rest#\"}"
+      rest="${after_quote#*\"}"
+    else
+      rest="${rest#*[[:space:]]}"
+    fi
+    rest="${rest#"${rest%%[![:space:]]*}"}"
+    local action="${rest}"
+
+    local section="${table}"
+    if [[ "${table}" == "prefix" && "${repeat_flag}" == "-r" ]]; then
+      section="prefix-repeat"
+    fi
+
+    binding_sections+=("${section}")
+
+    set_binding_group_key "${action}"
+    binding_group_keys+=("${__group_key}")
+
+    if [[ -z "${seen_sections["${section}"]:-}" ]]; then
+      section_order+=("${section}")
+      seen_sections["${section}"]=1
+    fi
+  done
+
+  # Output formatted bindings as Markdown
+  {
+    echo "# ${title}"
+    echo ""
+    echo "> \`${header#\# }\`"
+
+    for section in "${section_order[@]}"; do
+      local label="${section_labels["${section}"]:-${section}}"
+
+      echo ""
+      echo "## ${label}"
+
+      # Collect indices for this section
+      local -a sect_indices=()
+      for ((idx = 0; idx < ${#raw_lines[@]}; idx++)); do
+        if [[ "${binding_sections[${idx}]}" == "${section}" ]]; then
+          sect_indices+=("${idx}")
+        fi
+      done
+
+      # Build sortable lines: group_key + unit separator + original index
+      local -a sort_input=()
+      for idx in "${sect_indices[@]}"; do
+        sort_input+=("${binding_group_keys[${idx}]}"$'\x1f'"${idx}")
+      done
+
+      # Sort by group key (stable sort preserves original order within key)
+      local sorted
+      sorted="$(printf '%s\n' "${sort_input[@]}" | sort -t $'\x1f' -k1,1 -s)"
+
+      # Build sorted lines and keys arrays for emit_markdown_groups
+      local -a sorted_lines=()
+      local -a sorted_gkeys=()
+      while IFS=$'\x1f' read -r gkey gidx; do
+        [[ -z "${gidx}" ]] && continue
+        sorted_lines+=("${raw_lines[${gidx}]}")
+        sorted_gkeys+=("${gkey}")
+      done <<< "${sorted}"
+
+      emit_markdown_groups sorted_lines sorted_gkeys "###"
+    done
+  } > "${output}"
+}
+
+function main() {
+  mkdir -p "${FMT_DIR}"
+
+  # Clean up old .conf files from previous format
+  rm -f "${FMT_DIR}"/*.conf
+
+  echo "Formatting option files..." >&2
+  local -a option_files=(
+    server-options
+    global-options
+    window-options
+    colour-options
+    format-options
+    separator-options
+    style-options
+  )
+
+  for file in "${option_files[@]}"; do
+    format_options "${RAW_DIR}/${file}.conf" "${FMT_DIR}/${file}.md" "${FILE_TITLES["${file}"]:-${file}}"
+    echo "  ${file}.md" >&2
+  done
+
+  echo "Formatting all-options.md..." >&2
+  format_all_options "${RAW_DIR}/all-options.conf" "${FMT_DIR}/all-options.md" "${FILE_TITLES["all-options"]}"
+  echo "  all-options.md" >&2
+
+  echo "Formatting bindings.md..." >&2
+  format_bindings "${RAW_DIR}/bindings.conf" "${FMT_DIR}/bindings.md" "${FILE_TITLES["bindings"]}"
+  echo "  bindings.md" >&2
+
+  echo "Done. Formatted files written to defaults/formatted/" >&2
+}
+
+main "${@}"

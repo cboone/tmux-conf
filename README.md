@@ -2,7 +2,7 @@
 
 Reference documentation for tmux default configuration settings, plus personal tmux config.
 
-The `defaults/` directory contains files generated from a clean tmux server with no user configuration (`tmux -L unconfigured -f /dev/null start-server`), capturing every built-in option and key binding.
+The `defaults/` directory contains files generated from a clean tmux server with no user configuration (`tmux -L unconfigured -f /dev/null start-server`), capturing every built-in option and key binding. These files are automatically updated whenever a new version of tmux is released.
 
 ## Default Reference Files
 
@@ -17,6 +17,16 @@ The `defaults/` directory contains files generated from a clean tmux server with
 | `server-options.conf`    | Server-level options (`show-options -gs`)                                       |
 | `style-options.conf`     | Style-related options                                                           |
 | `window-options.conf`    | Window-level options (`show-options -gw`)                                       |
+
+## Formatted Defaults
+
+The `defaults/formatted/` directory contains the same data as Markdown files, reformatted for readability. Options are grouped by name prefix with section headers, and key bindings are organized by table and action type. Each group appears in its own fenced code block under a descriptive heading.
+
+To regenerate the formatted files from the raw defaults:
+
+```bash
+bin/format-defaults
+```
 
 ## Regenerating Defaults
 
