@@ -5,7 +5,6 @@
 ```tmux
 backspace C-?
 buffer-limit 50
-codepoint-widths
 ```
 
 ## Command
@@ -20,6 +19,7 @@ command-alias[5] "choose-session=choose-tree -s"
 ```
 
 ```tmux
+codepoint-widths
 copy-command ''
 ```
 
@@ -31,6 +31,7 @@ default-terminal tmux-256color
 ```
 
 ```tmux
+editor /usr/bin/vi
 escape-time 10
 ```
 
@@ -61,10 +62,10 @@ set-clipboard external
 ## Terminal
 
 ```tmux
+terminal-overrides[0] linux*:AX@
 terminal-features[0] xterm*:clipboard:ccolour:cstyle:focus:title
 terminal-features[1] screen*:title
 terminal-features[2] rxvt*:ignorefkeys
-terminal-overrides[0] linux*:AX@
 ```
 
 ```tmux
