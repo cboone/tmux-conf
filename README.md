@@ -9,6 +9,7 @@ The `defaults/` directory contains files generated from a clean tmux server with
 | File                     | Contents                                                                        |
 | ------------------------ | ------------------------------------------------------------------------------- |
 | `all-options.conf`       | Combined server, session, and window options                                    |
+| `binding-notes.conf`     | Key binding notes for prefix table (`list-keys -N`)                             |
 | `bindings.conf`          | Default key bindings for all key tables (copy-mode, copy-mode-vi, prefix, root) |
 | `colour-options.conf`    | Color-related options                                                           |
 | `format-options.conf`    | Format string options (`status-format`, `window-status-format`, etc.)           |
