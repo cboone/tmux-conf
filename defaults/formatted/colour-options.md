@@ -10,7 +10,6 @@ display-panes-colour blue
 ```
 
 ```tmux
-prompt-cursor-colour cyan
 cursor-colour none
 clock-mode-colour blue
 ```

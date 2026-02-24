@@ -2,6 +2,22 @@
 
 > `tmux -L unconfigured -f /dev/null start-server \; show-options -gw`
 
+## Cursor
+
+```tmux
+cursor-colour none
+cursor-style default
+```
+
+## Menu
+
+```tmux
+menu-style default
+menu-selected-style bg=yellow,fg=black
+menu-border-style default
+menu-border-lines single
+```
+
 ```tmux
 aggressive-resize off
 ```
@@ -11,7 +27,6 @@ aggressive-resize off
 ```tmux
 allow-passthrough off
 allow-rename off
-allow-set-title on
 ```
 
 ```tmux
@@ -35,19 +50,9 @@ clock-mode-style 24
 ## Copy
 
 ```tmux
+copy-mode-match-style bg=cyan,fg=black
 copy-mode-current-match-style bg=magenta,fg=black
 copy-mode-mark-style bg=red,fg=black
-copy-mode-match-style bg=cyan,fg=black
-copy-mode-position-format "#[align=right]#{t/p:top_line_time}#{?#{e|>:#{top_line_time},0}, ,}[#{scroll_position}/#{history_size}]#{?search_timed_out, (timed out),#{?search_count, (#{search_count}#{?search_count_partial,+,} results),}}"
-copy-mode-position-style "#{E:mode-style}"
-copy-mode-selection-style "#{E:mode-style}"
-```
-
-## Cursor
-
-```tmux
-cursor-colour none
-cursor-style default
 ```
 
 ```tmux
@@ -61,20 +66,11 @@ main-pane-height 24
 main-pane-width 80
 ```
 
-## Menu
-
-```tmux
-menu-border-lines single
-menu-border-style default
-menu-selected-style bg=yellow,fg=black
-menu-style default
-```
-
 ## Mode
 
 ```tmux
 mode-keys emacs
-mode-style noattr,bg=yellow,fg=black
+mode-style bg=yellow,fg=black
 ```
 
 ## Monitor
@@ -103,19 +99,14 @@ pane-border-lines single
 pane-border-status off
 pane-border-style default
 pane-colours
-pane-scrollbars off
-pane-scrollbars-position right
-pane-scrollbars-style bg=black,fg=white,width=1,pad=0
-pane-status-current-style default
-pane-status-style default
 ```
 
 ## Popup
 
 ```tmux
-popup-border-lines single
-popup-border-style default
 popup-style default
+popup-border-style default
+popup-border-lines single
 ```
 
 ## Remain
@@ -127,18 +118,7 @@ remain-on-exit-format "Pane is dead (#{?#{!=:#{pane_dead_status},},status #{pane
 
 ```tmux
 scroll-on-clear on
-```
-
-## Session
-
-```tmux
-session-status-current-style default
-session-status-style default
-```
-
-```tmux
 synchronize-panes off
-tiled-layout-max-columns 0
 ```
 
 ## Window
@@ -146,6 +126,7 @@ tiled-layout-max-columns 0
 ```tmux
 window-active-style default
 window-size latest
+window-style default
 window-status-activity-style reverse
 window-status-bell-style reverse
 window-status-current-format "#I:#W#{?window_flags,#{window_flags}, }"
@@ -154,7 +135,6 @@ window-status-format "#I:#W#{?window_flags,#{window_flags}, }"
 window-status-last-style default
 window-status-separator " "
 window-status-style default
-window-style default
 ```
 
 ```tmux

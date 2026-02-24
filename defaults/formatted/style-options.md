@@ -2,18 +2,20 @@
 
 > `tmux -L unconfigured -f /dev/null start-server \; show-options -g \; show-options -gw | grep style`
 
+## Message
+
 ```tmux
-clock-mode-style 24
+message-command-style bg=black,fg=yellow
+message-style bg=yellow,fg=black
 ```
 
-## Copy
+## Status
 
 ```tmux
-copy-mode-current-match-style bg=magenta,fg=black
-copy-mode-mark-style bg=red,fg=black
-copy-mode-match-style bg=cyan,fg=black
-copy-mode-position-style "#{E:mode-style}"
-copy-mode-selection-style "#{E:mode-style}"
+status-format[0] "#[align=left range=left #{E:status-left-style}]#[push-default]#{T;=/#{status-left-length}:status-left}#[pop-default]#[norange default]#[list=on align=#{status-justify}]#[list=left-marker]<#[list=right-marker]>#[list=on]#{W:#[range=window|#{window_index} #{E:window-status-style}#{?#{&&:#{window_last_flag},#{!=:#{E:window-status-last-style},default}}, #{E:window-status-last-style},}#{?#{&&:#{window_bell_flag},#{!=:#{E:window-status-bell-style},default}}, #{E:window-status-bell-style},#{?#{&&:#{||:#{window_activity_flag},#{window_silence_flag}},#{!=:#{E:window-status-activity-style},default}}, #{E:window-status-activity-style},}}]#[push-default]#{T:window-status-format}#[pop-default]#[norange default]#{?window_end_flag,,#{window-status-separator}},#[range=window|#{window_index} list=focus #{?#{!=:#{E:window-status-current-style},default},#{E:window-status-current-style},#{E:window-status-style}}#{?#{&&:#{window_last_flag},#{!=:#{E:window-status-last-style},default}}, #{E:window-status-last-style},}#{?#{&&:#{window_bell_flag},#{!=:#{E:window-status-bell-style},default}}, #{E:window-status-bell-style},#{?#{&&:#{||:#{window_activity_flag},#{window_silence_flag}},#{!=:#{E:window-status-activity-style},default}}, #{E:window-status-activity-style},}}]#[push-default]#{T:window-status-current-format}#[pop-default]#[norange list=on default]#{?window_end_flag,,#{window-status-separator}}}#[nolist align=right range=right #{E:status-right-style}]#[push-default]#{T;=/#{status-right-length}:status-right}#[pop-default]#[norange default]"
+status-left-style default
+status-right-style default
+status-style bg=green,fg=black
 ```
 
 ```tmux
@@ -23,20 +25,25 @@ cursor-style default
 ## Menu
 
 ```tmux
-menu-border-style default
-menu-selected-style bg=yellow,fg=black
 menu-style default
-```
-
-## Message
-
-```tmux
-message-command-style bg=black,fg=yellow
-message-style bg=yellow,fg=black
+menu-selected-style bg=yellow,fg=black
+menu-border-style default
 ```
 
 ```tmux
-mode-style noattr,bg=yellow,fg=black
+clock-mode-style 24
+```
+
+## Copy
+
+```tmux
+copy-mode-match-style bg=cyan,fg=black
+copy-mode-current-match-style bg=magenta,fg=black
+copy-mode-mark-style bg=red,fg=black
+```
+
+```tmux
+mode-style bg=yellow,fg=black
 ```
 
 ## Pane
@@ -44,45 +51,23 @@ mode-style noattr,bg=yellow,fg=black
 ```tmux
 pane-active-border-style "#{?pane_in_mode,fg=yellow,#{?synchronize-panes,fg=red,fg=green}}"
 pane-border-style default
-pane-scrollbars-style bg=black,fg=white,width=1,pad=0
-pane-status-current-style default
-pane-status-style default
 ```
 
 ## Popup
 
 ```tmux
-popup-border-style default
 popup-style default
-```
-
-```tmux
-prompt-cursor-style default
-```
-
-## Session
-
-```tmux
-session-status-current-style default
-session-status-style default
-```
-
-## Status
-
-```tmux
-status-left-style default
-status-right-style default
-status-style bg=green,fg=black
+popup-border-style default
 ```
 
 ## Window
 
 ```tmux
 window-active-style default
+window-style default
 window-status-activity-style reverse
 window-status-bell-style reverse
 window-status-current-style default
 window-status-last-style default
 window-status-style default
-window-style default
 ```

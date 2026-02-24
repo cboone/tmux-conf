@@ -21,20 +21,10 @@ command-alias[5] "choose-session=choose-tree -s"
 ```
 
 ```tmux
-codepoint-widths
 copy-command ''
-```
-
-### Default
-
-```tmux
-default-client-command new-session
 default-terminal tmux-256color
-```
-
-```tmux
-editor mg
-escape-time 10
+editor /usr/bin/vi
+escape-time 500
 ```
 
 ### Exit
@@ -44,19 +34,11 @@ exit-empty on
 exit-unattached off
 ```
 
-### Extended
-
 ```tmux
 extended-keys off
-extended-keys-format xterm
-```
-
-```tmux
 focus-events off
 history-file ''
-input-buffer-size 1048576
 message-limit 1000
-prefix-timeout 0
 prompt-history-limit 100
 set-clipboard external
 ```
@@ -64,7 +46,7 @@ set-clipboard external
 ### Terminal
 
 ```tmux
-terminal-overrides[0] linux*:AX@
+terminal-overrides
 terminal-features[0] xterm*:clipboard:ccolour:cstyle:focus:title
 terminal-features[1] screen*:title
 terminal-features[2] rxvt*:ignorefkeys
@@ -72,7 +54,6 @@ terminal-features[2] rxvt*:ignorefkeys
 
 ```tmux
 user-keys
-variation-selector-always-wide on
 ```
 
 ## Session Options (`show-options -g`)
@@ -88,7 +69,7 @@ bell-action any
 
 ```tmux
 default-command ''
-default-shell /bin/zsh
+default-shell /bin/bash
 default-size 80x24
 ```
 
@@ -108,7 +89,6 @@ display-time 750
 
 ```tmux
 history-limit 2000
-initial-repeat-time 0
 key-table root
 ```
 
@@ -152,9 +132,8 @@ silence-action other
 status on
 status-bg default
 status-fg default
-status-format[0] "#[align=left range=left #{E:status-left-style}]#[push-default]#{T;=/#{status-left-length}:status-left}#[pop-default]#[norange default]#[list=on align=#{status-justify}]#[list=left-marker]<#[list=right-marker]>#[list=on]#{W:#[range=window|#{window_index} #{E:window-status-style}#{?#{&&:#{window_last_flag},#{!=:#{E:window-status-last-style},default}}, #{E:window-status-last-style},}#{?#{&&:#{window_bell_flag},#{!=:#{E:window-status-bell-style},default}}, #{E:window-status-bell-style},#{?#{&&:#{||:#{window_activity_flag},#{window_silence_flag}},#{!=:#{E:window-status-activity-style},default}}, #{E:window-status-activity-style},}}]#[push-default]#{T:window-status-format}#[pop-default]#[norange default]#{?loop_last_flag,,#{window-status-separator}},#[range=window|#{window_index} list=focus #{?#{!=:#{E:window-status-current-style},default},#{E:window-status-current-style},#{E:window-status-style}}#{?#{&&:#{window_last_flag},#{!=:#{E:window-status-last-style},default}}, #{E:window-status-last-style},}#{?#{&&:#{window_bell_flag},#{!=:#{E:window-status-bell-style},default}}, #{E:window-status-bell-style},#{?#{&&:#{||:#{window_activity_flag},#{window_silence_flag}},#{!=:#{E:window-status-activity-style},default}}, #{E:window-status-activity-style},}}]#[push-default]#{T:window-status-current-format}#[pop-default]#[norange list=on default]#{?loop_last_flag,,#{window-status-separator}}}#[nolist align=right range=right #{E:status-right-style}]#[push-default]#{T;=/#{status-right-length}:status-right}#[pop-default]#[norange default]"
-status-format[1] "#[align=left]#{R: ,#{n:#{session_name}}}P: #[norange default]#[list=on align=#{status-justify}]#[list=left-marker]<#[list=right-marker]>#[list=on]#{P:#[range=pane|#{pane_id} #{E:pane-status-style}]#[push-default]#P[#{pane_width}x#{pane_height}]#[pop-default]#[norange list=on default]  ,#[range=pane|#{pane_id} list=focus #{?#{!=:#{E:pane-status-current-style},default},#{E:pane-status-current-style},#{E:pane-status-style}}]#[push-default]#P[#{pane_width}x#{pane_height}]*#[pop-default]#[norange list=on default] }"
-status-format[2] "#[align=left]#{R: ,#{n:#{session_name}}}S: #[norange default]#[list=on align=#{status-justify}]#[list=left-marker]<#[list=right-marker]>#[list=on]#{S:#[range=session|#{session_id} #{E:session-status-style}]#[push-default]#S#{session_alert}#[pop-default]#[norange list=on default]  ,#[range=session|#{session_id} list=focus #{?#{!=:#{E:session-status-current-style},default},#{E:session-status-current-style},#{E:session-status-style}}]#[push-default]#S*#{session_alert}#[pop-default]#[norange list=on default] }"
+status-format[0] "#[align=left range=left #{E:status-left-style}]#[push-default]#{T;=/#{status-left-length}:status-left}#[pop-default]#[norange default]#[list=on align=#{status-justify}]#[list=left-marker]<#[list=right-marker]>#[list=on]#{W:#[range=window|#{window_index} #{E:window-status-style}#{?#{&&:#{window_last_flag},#{!=:#{E:window-status-last-style},default}}, #{E:window-status-last-style},}#{?#{&&:#{window_bell_flag},#{!=:#{E:window-status-bell-style},default}}, #{E:window-status-bell-style},#{?#{&&:#{||:#{window_activity_flag},#{window_silence_flag}},#{!=:#{E:window-status-activity-style},default}}, #{E:window-status-activity-style},}}]#[push-default]#{T:window-status-format}#[pop-default]#[norange default]#{?window_end_flag,,#{window-status-separator}},#[range=window|#{window_index} list=focus #{?#{!=:#{E:window-status-current-style},default},#{E:window-status-current-style},#{E:window-status-style}}#{?#{&&:#{window_last_flag},#{!=:#{E:window-status-last-style},default}}, #{E:window-status-last-style},}#{?#{&&:#{window_bell_flag},#{!=:#{E:window-status-bell-style},default}}, #{E:window-status-bell-style},#{?#{&&:#{||:#{window_activity_flag},#{window_silence_flag}},#{!=:#{E:window-status-activity-style},default}}, #{E:window-status-activity-style},}}]#[push-default]#{T:window-status-current-format}#[pop-default]#[norange list=on default]#{?window_end_flag,,#{window-status-separator}}}#[nolist align=right range=right #{E:status-right-style}]#[push-default]#{T;=/#{status-right-length}:status-right}#[pop-default]#[norange default]"
+status-format[1] "#[align=centre]#{P:#{?pane_active,#[reverse],}#{pane_index}[#{pane_width}x#{pane_height}]#[default] }"
 status-interval 15
 status-justify left
 status-keys emacs
@@ -168,25 +147,17 @@ status-right-style default
 status-style bg=green,fg=black
 ```
 
-### Prompt
-
-```tmux
-prompt-cursor-colour cyan
-prompt-cursor-style default
-```
-
 ### Update
 
 ```tmux
 update-environment[0] DISPLAY
 update-environment[1] KRB5CCNAME
-update-environment[2] MSYSTEM
-update-environment[3] SSH_ASKPASS
-update-environment[4] SSH_AUTH_SOCK
-update-environment[5] SSH_AGENT_PID
-update-environment[6] SSH_CONNECTION
-update-environment[7] WINDOWID
-update-environment[8] XAUTHORITY
+update-environment[2] SSH_ASKPASS
+update-environment[3] SSH_AUTH_SOCK
+update-environment[4] SSH_AGENT_PID
+update-environment[5] SSH_CONNECTION
+update-environment[6] WINDOWID
+update-environment[7] XAUTHORITY
 ```
 
 ### Visual
@@ -219,20 +190,6 @@ menu-border-style default
 menu-border-lines single
 ```
 
-### Pane
-
-```tmux
-pane-status-current-style default
-pane-status-style default
-```
-
-### Session
-
-```tmux
-session-status-current-style default
-session-status-style default
-```
-
 ```tmux
 aggressive-resize off
 ```
@@ -242,7 +199,6 @@ aggressive-resize off
 ```tmux
 allow-passthrough off
 allow-rename off
-allow-set-title on
 ```
 
 ```tmux
@@ -269,9 +225,6 @@ clock-mode-style 24
 copy-mode-match-style bg=cyan,fg=black
 copy-mode-current-match-style bg=magenta,fg=black
 copy-mode-mark-style bg=red,fg=black
-copy-mode-position-format "#[align=right]#{t/p:top_line_time}#{?#{e|>:#{top_line_time},0}, ,}[#{scroll_position}/#{history_size}]#{?search_timed_out, (timed out),#{?search_count, (#{search_count}#{?search_count_partial,+,} results),}}"
-copy-mode-position-style "#{E:mode-style}"
-copy-mode-selection-style "#{E:mode-style}"
 ```
 
 ```tmux
@@ -289,7 +242,7 @@ main-pane-width 80
 
 ```tmux
 mode-keys emacs
-mode-style noattr,bg=yellow,fg=black
+mode-style bg=yellow,fg=black
 ```
 
 ### Monitor
@@ -318,9 +271,6 @@ pane-border-lines single
 pane-border-status off
 pane-border-style default
 pane-colours
-pane-scrollbars off
-pane-scrollbars-style bg=black,fg=white,width=1,pad=0
-pane-scrollbars-position right
 ```
 
 ### Popup
@@ -341,7 +291,6 @@ remain-on-exit-format "Pane is dead (#{?#{!=:#{pane_dead_status},},status #{pane
 ```tmux
 scroll-on-clear on
 synchronize-panes off
-tiled-layout-max-columns 0
 ```
 
 ### Window
