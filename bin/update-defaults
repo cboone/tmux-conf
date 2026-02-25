@@ -11,6 +11,19 @@ readonly REPO_DIR="${SCRIPT_DIR}/.."
 readonly DEFAULTS_DIR="${REPO_DIR}/defaults"
 readonly SOCKET_NAME="unconfigured"
 
+# File tracking the tmux version used to generate defaults. The script refuses
+# to run if the installed tmux doesn't match, unless --accept-version is passed
+# to adopt a new version.
+readonly VERSION_FILE="${REPO_DIR}/.tmux-version"
+
+# Options whose values depend on the local environment rather than tmux
+# defaults. Each line in the generated output matching one of these option names
+# is commented out with a descriptive placeholder.
+declare -A ENV_DEPENDENT_OPTIONS=(
+  [default-shell]="\$SHELL"
+  [editor]="\$EDITOR"
+)
+
 # Kill the unconfigured tmux server on exit, if it is running.
 # Arguments: none
 # Returns: 0
@@ -39,6 +52,24 @@ function extract_command() {
   printf '%s\n' "${header#\# }"
 }
 
+# Replace environment-dependent option values with placeholder comments.
+# Reads lines from stdin and writes processed lines to stdout.
+# Options listed in ENV_DEPENDENT_OPTIONS are commented out with their
+# placeholder value (e.g., "editor /usr/bin/vi" becomes "# editor $EDITOR").
+# Arguments: none
+function sanitize_env_options() {
+  local line opt_name placeholder
+  while IFS= read -r line; do
+    opt_name="${line%% *}"
+    if [[ -n "${ENV_DEPENDENT_OPTIONS["${opt_name}"]:-}" ]]; then
+      placeholder="${ENV_DEPENDENT_OPTIONS["${opt_name}"]}"
+      printf '# %s %s\n' "${opt_name}" "${placeholder}"
+    else
+      printf '%s\n' "${line}"
+    fi
+  done
+}
+
 # Regenerate a single defaults file by running its header command.
 # Arguments:
 #   $1 - Path to a defaults/*.conf file
@@ -63,17 +94,53 @@ function update_file() {
     return 1
   }
 
+  # Sanitize environment-dependent options in show-options output.
+  output="$(printf '%s\n' "${output}" | sanitize_env_options)"
+
   printf '# %s\n\n%s\n' "${command}" "${output}" > "${file}"
   printf 'updated %s\n' "${basename}" >&2
 }
 
 function main() {
+  local accept_version=false
+  while [[ "${#}" -gt 0 ]]; do
+    case "${1}" in
+      --accept-version) accept_version=true; shift ;;
+      *)
+        printf 'usage: update-defaults [--accept-version]\n' >&2
+        exit 1
+        ;;
+    esac
+  done
+
   if ! command -v tmux > /dev/null 2>&1; then
     printf 'error: tmux is not installed\n' >&2
     exit 1
   fi
 
-  printf 'tmux %s\n' "$(tmux -V | cut -d' ' -f2)" >&2
+  local tmux_version
+  tmux_version="$(tmux -V | cut -d' ' -f2)"
+  printf 'tmux %s\n' "${tmux_version}" >&2
+
+  # Read the expected version from .tmux-version.
+  local expected_version=""
+  if [[ -f "${VERSION_FILE}" ]]; then
+    expected_version="$(< "${VERSION_FILE}")"
+    expected_version="${expected_version%%[[:space:]]}"
+  fi
+
+  if [[ "${tmux_version}" != "${expected_version}" ]]; then
+    if [[ "${accept_version}" == true ]]; then
+      printf '%s\n' "${tmux_version}" > "${VERSION_FILE}"
+      printf 'Updated .tmux-version: %s -> %s\n' "${expected_version}" "${tmux_version}" >&2
+    else
+      printf 'error: expected tmux %s (from .tmux-version), found %s\n' "${expected_version}" "${tmux_version}" >&2
+      printf 'Defaults vary between tmux versions. Either:\n' >&2
+      printf '  - Install tmux %s to regenerate with the current version\n' "${expected_version}" >&2
+      printf '  - Run with --accept-version to adopt tmux %s\n' "${tmux_version}" >&2
+      exit 1
+    fi
+  fi
 
   trap cleanup EXIT
 

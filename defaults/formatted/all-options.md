@@ -33,7 +33,7 @@ default-terminal tmux-256color
 ```
 
 ```tmux
-editor mg
+# editor $EDITOR
 escape-time 10
 ```
 
@@ -88,7 +88,7 @@ bell-action any
 
 ```tmux
 default-command ''
-default-shell /bin/zsh
+# default-shell $SHELL
 default-size 80x24
 ```
 

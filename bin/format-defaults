@@ -21,6 +21,7 @@ declare -A FILE_TITLES=(
   [style-options]="Style Options"
   [all-options]="All Options"
   [bindings]="Key Bindings"
+  [binding-notes]="Key Binding Notes"
 )
 
 # Derive a group key from an option name using parameter expansion.
@@ -110,16 +111,22 @@ function format_options() {
   while IFS= read -r line; do
     if [[ -z "${header}" && "${line}" == \#* ]]; then
       header="${line}"
-    elif [[ -n "${line}" && "${line}" != \#* ]]; then
+    elif [[ -n "${line}" ]]; then
       lines+=("${line}")
     fi
   done < "${input}"
 
-  # Pre-compute group keys for all lines
+  # Pre-compute group keys for all lines.
+  # Commented options (e.g., "# default-shell $SHELL") use the option name
+  # after the "# " prefix as the group key source.
   local -a keys=()
   local -i idx
   for ((idx = 0; idx < ${#lines[@]}; idx++)); do
-    local opt_name="${lines[${idx}]%% *}"
+    local opt_name="${lines[${idx}]}"
+    if [[ "${opt_name}" == \#\ * ]]; then
+      opt_name="${opt_name#\# }"
+    fi
+    opt_name="${opt_name%% *}"
     set_option_group_key "${opt_name}"
     keys+=("${__group_key}")
   done
@@ -178,17 +185,23 @@ function format_all_options() {
   while IFS= read -r line; do
     if [[ -z "${header}" && "${line}" == \#* ]]; then
       header="${line}"
-    elif [[ -n "${line}" && "${line}" != \#* ]]; then
+    elif [[ -n "${line}" ]]; then
       all_lines+=("${line}")
     fi
   done < "${input}"
 
-  # Pre-compute scopes and group keys
+  # Pre-compute scopes and group keys.
+  # Commented options (e.g., "# editor $EDITOR") use the option name after
+  # the "# " prefix for scope lookup and group key computation.
   local -a scopes=()
   local -a keys=()
   local -i idx
   for ((idx = 0; idx < ${#all_lines[@]}; idx++)); do
-    local opt_name="${all_lines[${idx}]%% *}"
+    local opt_name="${all_lines[${idx}]}"
+    if [[ "${opt_name}" == \#\ * ]]; then
+      opt_name="${opt_name#\# }"
+    fi
+    opt_name="${opt_name%% *}"
     scopes+=("${scope_map["${opt_name}"]:-unknown}")
     set_option_group_key "${opt_name}"
     keys+=("${__group_key}")
@@ -424,6 +437,84 @@ function format_bindings() {
   } > "${output}"
 }
 
+# Derive a group key from the note text of a binding-notes line.
+# Uses the first word of the note (lowercased).
+# Arguments:
+#   $1 - Note text (e.g., "Select the next window")
+# Sets: __group_key
+function set_note_group_key() {
+  local note="${1}"
+  local first_word="${note%% *}"
+  __group_key="${first_word,,}"
+}
+
+# Format the binding-notes file as Markdown with note-based groups.
+# The input format is "C-b <key>  <note>" from list-keys -N.
+# Arguments:
+#   $1 - Input file path (raw binding-notes.conf)
+#   $2 - Output file path (formatted Markdown)
+#   $3 - Display title for the H1 header
+function format_binding_notes() {
+  local input="${1}"
+  local output="${2}"
+  local title="${3}"
+
+  local header=""
+  local -a raw_lines=()
+
+  while IFS= read -r line; do
+    if [[ -z "${header}" && "${line}" == \#* ]]; then
+      header="${line}"
+    elif [[ -n "${line}" && "${line}" != \#* ]]; then
+      raw_lines+=("${line}")
+    fi
+  done < "${input}"
+
+  # Extract group keys from the note portion of each line.
+  # Format: "<prefix> <key>     <note>"
+  local -a group_keys=()
+  local -i idx
+  for ((idx = 0; idx < ${#raw_lines[@]}; idx++)); do
+    local bline="${raw_lines[${idx}]}"
+    # Strip the prefix (e.g., "C-b ") — everything up to and including the
+    # first space after the prefix.
+    local after_prefix="${bline#* }"
+    # Strip the key and following whitespace to isolate the note.
+    local key_and_note="${after_prefix}"
+    local key="${key_and_note%%[[:space:]]*}"
+    local note="${key_and_note#"${key}"}"
+    note="${note#"${note%%[![:space:]]*}"}"
+    set_note_group_key "${note}"
+    group_keys+=("${__group_key}")
+  done
+
+  # Build sortable lines: group_key + unit separator + original index
+  local -a sort_input=()
+  for ((idx = 0; idx < ${#raw_lines[@]}; idx++)); do
+    sort_input+=("${group_keys[${idx}]}"$'\x1f'"${idx}")
+  done
+
+  # Sort by group key (stable sort preserves original order within key)
+  local sorted
+  sorted="$(printf '%s\n' "${sort_input[@]}" | sort -t $'\x1f' -k1,1 -s)"
+
+  # Build sorted lines and keys arrays for emit_markdown_groups
+  local -a sorted_lines=()
+  local -a sorted_gkeys=()
+  while IFS=$'\x1f' read -r gkey gidx; do
+    [[ -z "${gidx}" ]] && continue
+    sorted_lines+=("${raw_lines[${gidx}]}")
+    sorted_gkeys+=("${gkey}")
+  done <<< "${sorted}"
+
+  {
+    echo "# ${title}"
+    echo ""
+    echo "> \`${header#\# }\`"
+    emit_markdown_groups sorted_lines sorted_gkeys
+  } > "${output}"
+}
+
 function main() {
   mkdir -p "${FMT_DIR}"
 
@@ -453,6 +544,10 @@ function main() {
   echo "Formatting bindings.md..." >&2
   format_bindings "${RAW_DIR}/bindings.conf" "${FMT_DIR}/bindings.md" "${FILE_TITLES["bindings"]}"
   echo "  bindings.md" >&2
+
+  echo "Formatting binding-notes.md..." >&2
+  format_binding_notes "${RAW_DIR}/binding-notes.conf" "${FMT_DIR}/binding-notes.md" "${FILE_TITLES["binding-notes"]}"
+  echo "  binding-notes.md" >&2
 
   echo "Done. Formatted files written to defaults/formatted/" >&2
 }

@@ -13,7 +13,7 @@ bell-action any
 
 ```tmux
 default-command ''
-default-shell /bin/zsh
+# default-shell $SHELL
 default-size 80x24
 ```
 
@@ -56,16 +56,6 @@ message-style bg=yellow,fg=black
 mouse off
 prefix C-b
 prefix2 None
-```
-
-## Prompt
-
-```tmux
-prompt-cursor-colour cyan
-prompt-cursor-style default
-```
-
-```tmux
 renumber-windows off
 repeat-time 500
 ```
@@ -101,6 +91,13 @@ status-right "#{?window_bigger,[#{window_offset_x}#,#{window_offset_y}] ,}\"#{=2
 status-right-length 40
 status-right-style default
 status-style bg=green,fg=black
+```
+
+## Prompt
+
+```tmux
+prompt-cursor-colour cyan
+prompt-cursor-style default
 ```
 
 ## Update

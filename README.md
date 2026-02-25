@@ -9,6 +9,7 @@ The `defaults/` directory contains files generated from a clean tmux server with
 | File                     | Contents                                                                        |
 | ------------------------ | ------------------------------------------------------------------------------- |
 | `all-options.conf`       | Combined server, session, and window options                                    |
+| `binding-notes.conf`     | Key binding notes for prefix table (`list-keys -N`)                             |
 | `bindings.conf`          | Default key bindings for all key tables (copy-mode, copy-mode-vi, prefix, root) |
 | `colour-options.conf`    | Color-related options                                                           |
 | `format-options.conf`    | Format string options (`status-format`, `window-status-format`, etc.)           |
@@ -36,7 +37,13 @@ Run the update script to regenerate all files at once:
 ./bin/update-defaults
 ```
 
-The script reads the tmux command from each file's header comment, runs it against an unconfigured tmux server, and writes the output back. It prints progress and the tmux version used.
+The script reads the tmux command from each file's header comment, runs it against an unconfigured tmux server, and writes the output back. It requires the installed tmux version to match `.tmux-version` (currently `3.6a`). To adopt a new tmux release:
+
+```bash
+./bin/update-defaults --accept-version
+```
+
+A [weekly GitHub Actions workflow](.github/workflows/update-defaults.yml) automatically detects new tmux releases, builds from source, regenerates all defaults, and opens a PR.
 
 ## License
 
