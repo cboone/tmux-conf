@@ -27,6 +27,8 @@ C-b d       Detach the current client
 ## Display
 
 ```tmux
+C-b <       Display window menu
+C-b >       Display pane menu
 C-b i       Display window information
 C-b q       Display pane numbers
 ```
@@ -105,8 +107,8 @@ C-b C-Right Resize the pane right
 ## Rotate
 
 ```tmux
-C-b C-o     Rotate through the panes
 C-b M-o     Rotate through the panes in reverse
+C-b C-o     Rotate through the panes
 ```
 
 ```tmux
@@ -151,6 +153,8 @@ C-b M-1     Set the even-horizontal layout
 C-b M-2     Set the even-vertical layout
 C-b M-3     Set the main-horizontal layout
 C-b M-4     Set the main-vertical layout
+C-b M-6     Set the main-horizontal-mirrored layout
+C-b M-7     Set the main-vertical-mirrored layout
 ```
 
 ## Show
