@@ -5,6 +5,7 @@
 ```tmux
 backspace C-?
 buffer-limit 50
+codepoint-widths
 ```
 
 ## Command
@@ -20,9 +21,17 @@ command-alias[5] "choose-session=choose-tree -s"
 
 ```tmux
 copy-command ''
+```
+
+## Default
+
+```tmux
+default-client-command new-session
 default-terminal tmux-256color
-editor /usr/bin/vi
-escape-time 500
+```
+
+```tmux
+escape-time 10
 ```
 
 ## Exit
@@ -32,11 +41,19 @@ exit-empty on
 exit-unattached off
 ```
 
+## Extended
+
 ```tmux
 extended-keys off
+extended-keys-format xterm
+```
+
+```tmux
 focus-events off
 history-file ''
+input-buffer-size 1048576
 message-limit 1000
+prefix-timeout 0
 prompt-history-limit 100
 set-clipboard external
 ```
@@ -44,12 +61,13 @@ set-clipboard external
 ## Terminal
 
 ```tmux
-terminal-overrides
 terminal-features[0] xterm*:clipboard:ccolour:cstyle:focus:title
 terminal-features[1] screen*:title
 terminal-features[2] rxvt*:ignorefkeys
+terminal-overrides[0] linux*:AX@
 ```
 
 ```tmux
 user-keys
+variation-selector-always-wide on
 ```
