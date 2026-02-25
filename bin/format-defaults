@@ -111,16 +111,22 @@ function format_options() {
   while IFS= read -r line; do
     if [[ -z "${header}" && "${line}" == \#* ]]; then
       header="${line}"
-    elif [[ -n "${line}" && "${line}" != \#* ]]; then
+    elif [[ -n "${line}" ]]; then
       lines+=("${line}")
     fi
   done < "${input}"
 
-  # Pre-compute group keys for all lines
+  # Pre-compute group keys for all lines.
+  # Commented options (e.g., "# default-shell $SHELL") use the option name
+  # after the "# " prefix as the group key source.
   local -a keys=()
   local -i idx
   for ((idx = 0; idx < ${#lines[@]}; idx++)); do
-    local opt_name="${lines[${idx}]%% *}"
+    local opt_name="${lines[${idx}]}"
+    if [[ "${opt_name}" == \#\ * ]]; then
+      opt_name="${opt_name#\# }"
+    fi
+    opt_name="${opt_name%% *}"
     set_option_group_key "${opt_name}"
     keys+=("${__group_key}")
   done
@@ -179,17 +185,23 @@ function format_all_options() {
   while IFS= read -r line; do
     if [[ -z "${header}" && "${line}" == \#* ]]; then
       header="${line}"
-    elif [[ -n "${line}" && "${line}" != \#* ]]; then
+    elif [[ -n "${line}" ]]; then
       all_lines+=("${line}")
     fi
   done < "${input}"
 
-  # Pre-compute scopes and group keys
+  # Pre-compute scopes and group keys.
+  # Commented options (e.g., "# editor $EDITOR") use the option name after
+  # the "# " prefix for scope lookup and group key computation.
   local -a scopes=()
   local -a keys=()
   local -i idx
   for ((idx = 0; idx < ${#all_lines[@]}; idx++)); do
-    local opt_name="${all_lines[${idx}]%% *}"
+    local opt_name="${all_lines[${idx}]}"
+    if [[ "${opt_name}" == \#\ * ]]; then
+      opt_name="${opt_name#\# }"
+    fi
+    opt_name="${opt_name%% *}"
     scopes+=("${scope_map["${opt_name}"]:-unknown}")
     set_option_group_key "${opt_name}"
     keys+=("${__group_key}")
