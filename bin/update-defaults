@@ -11,9 +11,10 @@ readonly REPO_DIR="${SCRIPT_DIR}/.."
 readonly DEFAULTS_DIR="${REPO_DIR}/defaults"
 readonly SOCKET_NAME="unconfigured"
 
-# Expected tmux version. The script warns if a different version is installed,
-# since defaults vary between releases. Update this when upgrading tmux.
-readonly EXPECTED_TMUX_VERSION="3.6a"
+# File tracking the tmux version used to generate defaults. The script refuses
+# to run if the installed tmux doesn't match, unless --accept-version is passed
+# to adopt a new version.
+readonly VERSION_FILE="${REPO_DIR}/.tmux-version"
 
 # Options whose values depend on the local environment rather than tmux
 # defaults. Each line in the generated output matching one of these option names
@@ -101,6 +102,17 @@ function update_file() {
 }
 
 function main() {
+  local accept_version=false
+  while [[ "${#}" -gt 0 ]]; do
+    case "${1}" in
+      --accept-version) accept_version=true; shift ;;
+      *)
+        printf 'usage: update-defaults [--accept-version]\n' >&2
+        exit 1
+        ;;
+    esac
+  done
+
   if ! command -v tmux > /dev/null 2>&1; then
     printf 'error: tmux is not installed\n' >&2
     exit 1
@@ -110,10 +122,24 @@ function main() {
   tmux_version="$(tmux -V | cut -d' ' -f2)"
   printf 'tmux %s\n' "${tmux_version}" >&2
 
-  if [[ "${tmux_version}" != "${EXPECTED_TMUX_VERSION}" ]]; then
-    printf 'error: expected tmux %s, found %s\n' "${EXPECTED_TMUX_VERSION}" "${tmux_version}" >&2
-    printf 'Defaults vary between tmux versions. Install tmux %s to regenerate.\n' "${EXPECTED_TMUX_VERSION}" >&2
-    exit 1
+  # Read the expected version from .tmux-version.
+  local expected_version=""
+  if [[ -f "${VERSION_FILE}" ]]; then
+    expected_version="$(< "${VERSION_FILE}")"
+    expected_version="${expected_version%%[[:space:]]}"
+  fi
+
+  if [[ "${tmux_version}" != "${expected_version}" ]]; then
+    if [[ "${accept_version}" == true ]]; then
+      printf '%s\n' "${tmux_version}" > "${VERSION_FILE}"
+      printf 'Updated .tmux-version: %s -> %s\n' "${expected_version}" "${tmux_version}" >&2
+    else
+      printf 'error: expected tmux %s (from .tmux-version), found %s\n' "${expected_version}" "${tmux_version}" >&2
+      printf 'Defaults vary between tmux versions. Either:\n' >&2
+      printf '  - Install tmux %s to regenerate with the current version\n' "${expected_version}" >&2
+      printf '  - Run with --accept-version to adopt tmux %s\n' "${tmux_version}" >&2
+      exit 1
+    fi
   fi
 
   trap cleanup EXIT
